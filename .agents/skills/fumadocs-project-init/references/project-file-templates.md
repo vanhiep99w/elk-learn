@@ -10,6 +10,8 @@ Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPT
 
 ## `package.json`
 
+Scripts follow the standard convention for a Cloudflare-Pages-deployed Fumadocs site — `build` produces the static export in `./dist` (per `next.config.ts` above), `deploy` builds then pushes via Wrangler, `preview` serves the built `dist` locally through Wrangler for a closer-to-production check than `next dev`.
+
 ```json
 {
   "name": "<PROJECT_NAME>",
@@ -18,7 +20,8 @@ Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPT
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "preview": "npm run build && wrangler pages dev dist",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
@@ -37,7 +40,8 @@ Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPT
     "@types/react-dom": "^19",
     "postcss": "^8",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4"
   }
 }
 ```
@@ -76,6 +80,8 @@ Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPT
 
 ## `next.config.ts`
 
+Configured for **static export to `./dist`**, matching a Cloudflare Pages deployment (build output directory = `dist`). This is the standard target for this skill's projects — adjust `distDir`/drop `output: 'export'` only if the user explicitly says they're deploying to a Node.js host (Vercel/self-hosted) instead of a static host.
+
 ```ts
 import type { NextConfig } from 'next';
 import { createMDX } from 'fumadocs-mdx/next';
@@ -84,10 +90,17 @@ const withMDX = createMDX();
 
 const config: NextConfig = {
   reactStrictMode: true,
+  output: 'export',
+  distDir: 'dist',
+  images: {
+    unoptimized: true, // required for static export — next/image optimization needs a server
+  },
 };
 
 export default withMDX(config);
 ```
+
+**Important:** static export (`output: 'export'`) means no server-side route handlers can run at request time — every route must be pre-rendered at build time. This affects the search route below (must use `staticGET`, not the default dynamic `GET`) and rules out any future server-only feature (auth, dynamic API routes, ISR) unless the user later switches away from static export.
 
 ---
 
@@ -299,7 +312,44 @@ node_modules
 
 ---
 
-## Root `content/docs/meta.json` (top-level nav order)
+## `app/api/search/route.ts`
+
+**Required for the built-in search box to work at all** — without this route, Fumadocs UI's search dialog calls `/api/search` and gets a 404. Because the project uses `output: 'export'` (static export, no server at request time), this **must** use `staticGET`, not a normal dynamic `GET` — a normal route handler would silently fail to work once deployed as a static site even though it works fine in `next dev`.
+
+```ts
+import { source } from '@/lib/source';
+import { createFromSource } from 'fumadocs-core/search/server';
+
+// statically cached at build time — required for static export
+export const revalidate = false;
+export const { staticGET: GET } = createFromSource(source);
+```
+
+The default Fumadocs UI search dialog (registered automatically via `RootProvider`) also needs to be told to use the static client instead of the fetch client — otherwise it'll still try to hit the (nonexistent, at runtime) dynamic endpoint. Add this to `lib/layout.shared.ts`'s returned options, or wherever `RootProvider`/`DocsLayout` search config is set:
+
+```ts
+// inside baseOptions() in lib/layout.shared.ts, or passed to RootProvider
+searchOptions: {
+  type: 'static',
+},
+```
+(Exact prop name/location can shift between Fumadocs versions — verify against current docs per the version-check note at the top of this file if the search dialog doesn't find results after deploy.)
+
+---
+
+## `public/_redirects` (Cloudflare Pages redirect rules)
+
+Cloudflare Pages serves the static export as-is — there's no automatic redirect from `/` to a docs page unless one is configured. Redirect the site root to the first real content page (the first page in the root `content/docs/meta.json`'s `pages` order):
+
+```
+/    /docs/<first-category-slug>/<first-page-slug>    302
+```
+
+Update this file whenever the very first page of the whole site changes (e.g. the first category gets reordered).
+
+---
+
+
 
 ```json
 {

@@ -3,16 +3,735 @@ title: "Mô hình dữ liệu"
 description: "Làm rõ index, document, field, mapping và mối liên hệ giữa các khái niệm dữ liệu."
 ---
 
-Trang này sẽ trình bày **mô hình dữ liệu** trong bối cảnh Elasticsearch và hệ sinh thái Elastic.
+Mô hình dữ liệu quyết định Elasticsearch lưu một bản ghi như thế nào, lập chỉ mục ra sao và có thể tìm kiếm bản ghi đó bằng những cách nào. Trang này đi từ các khái niệm nhỏ nhất đến một mapping có thể dùng ngay bằng REST API.
 
-<Callout type="info">
-  Đây là placeholder page. Nội dung chi tiết, ví dụ thực hành, sơ đồ và troubleshooting sẽ được bổ sung trong detailed-writing pass.
+<Callout type="info" title="Phạm vi của bài viết">
+  Ví dụ dùng Elasticsearch REST API trực tiếp. Thay `http://localhost:9200` bằng endpoint của cụm Elasticsearch và thêm thông tin xác thực nếu cụm của bạn yêu cầu.
 </Callout>
 
 ## Mục lục
 
-- [Nội dung dự kiến](#nội-dung-dự-kiến)
+- [Mô hình dữ liệu trong một phút](#mô-hình-dữ-liệu-trong-một-phút)
+  - [Quan hệ giữa index document field và _source](#quan-hệ-giữa-index-document-field-và-_source)
+  - [Một document hoàn chỉnh](#một-document-hoàn-chỉnh)
+- [Index document field và _source](#index-document-field-và-_source)
+  - [Index là gì](#index-là-gì)
+  - [Document là gì](#document-là-gì)
+  - [Field là gì](#field-là-gì)
+  - [_source là gì](#_source-là-gì)
+- [Mapping và dynamic mapping](#mapping-và-dynamic-mapping)
+  - [Mapping là gì](#mapping-là-gì)
+  - [Dynamic mapping hoạt động ra sao](#dynamic-mapping-hoạt-động-ra-sao)
+  - [Chọn explicit mapping hay dynamic mapping](#chọn-explicit-mapping-hay-dynamic-mapping)
+- [Các kiểu dữ liệu quan trọng](#các-kiểu-dữ-liệu-quan-trọng)
+  - [keyword](#keyword)
+  - [text](#text)
+  - [Kiểu số](#kiểu-số)
+  - [date](#date)
+  - [boolean](#boolean)
+  - [object](#object)
+  - [nested](#nested)
+- [Vì sao mapping ảnh hưởng indexing và search](#vì-sao-mapping-ảnh-hưởng-indexing-và-search)
+  - [Ảnh hưởng tới indexing](#ảnh-hưởng-tới-indexing)
+  - [Ảnh hưởng tới search](#ảnh-hưởng-tới-search)
+- [Object và nested](#object-và-nested)
+  - [Khi object làm mất quan hệ phần tử](#khi-object-làm-mất-quan-hệ-phần-tử)
+  - [Khi nested giữ quan hệ phần tử](#khi-nested-giữ-quan-hệ-phần-tử)
+- [Tạo index mapping và document bằng REST API](#tạo-index-mapping-và-document-bằng-rest-api)
+  - [Tạo index với explicit mapping](#tạo-index-với-explicit-mapping)
+  - [Index một document](#index-một-document)
+  - [Kiểm tra mapping và document](#kiểm-tra-mapping-và-document)
+- [Lỗi thiết kế thường gặp](#lỗi-thiết-kế-thường-gặp)
+  - [Chọn text cho mọi chuỗi](#chọn-text-cho-mọi-chuỗi)
+  - [Tin hoàn toàn vào dynamic mapping](#tin-hoàn-toàn-vào-dynamic-mapping)
+  - [Đổi kiểu field trên index đang có dữ liệu](#đổi-kiểu-field-trên-index-đang-có-dữ-liệu)
+  - [Lạm dụng nested và tạo quá nhiều field](#lạm-dụng-nested-và-tạo-quá-nhiều-field)
+- [Nguyên tắc đặt model](#nguyên-tắc-đặt-model)
+  - [Bắt đầu từ cách truy vấn](#bắt-đầu-từ-cách-truy-vấn)
+  - [Định rõ biên giới index](#định-rõ-biên-giới-index)
+  - [Giữ schema ổn định và có version](#giữ-schema-ổn-định-và-có-version)
+  - [Đặt tên nhất quán](#đặt-tên-nhất-quán)
+- [Index template và data stream](#index-template-và-data-stream)
+  - [Index template](#index-template)
+  - [Data stream](#data-stream)
+- [Next steps](#next-steps)
 
-## Nội dung dự kiến
+## Mô hình dữ liệu trong một phút
 
-Bài viết chi tiết sẽ bao gồm các khái niệm chính, cách triển khai hoặc sử dụng, các quyết định thiết kế quan trọng và liên kết đến những bài liên quan.
+### Quan hệ giữa index document field và _source
+
+Có thể hình dung dữ liệu Elasticsearch theo các lớp sau:
+
+```text
+Cluster
+└── Index products
+    ├── Document _id=prod-001
+    │   ├── Field: product_id
+    │   ├── Field: name
+    │   └── _source: JSON gốc của document
+    └── Document _id=prod-002
+```
+
+- **Index** là không gian logic chứa các document có cùng mục đích tìm kiếm và thường có cùng mapping. Index được Elasticsearch chia thành shard để lưu trữ và truy vấn phân tán.
+- **Document** là một bản ghi JSON độc lập. Document có `_id` để định danh trong index.
+- **Field** là một thuộc tính trong document, chẳng hạn `name` hoặc `price`. Mapping quy định cách Elasticsearch hiểu và lập chỉ mục field đó.
+- **`_source`** là JSON gốc mà Elasticsearch lưu cùng document. Nó giúp trả lại dữ liệu khi đọc document, nhưng không phải là cấu trúc duy nhất được dùng để search.
+
+Quan hệ quan trọng là: một index chứa nhiều document, một document có nhiều field, còn mapping của index mô tả kiểu và cách xử lý các field đó. `_source` thường chứa các field nguyên bản nhưng không tự biến mọi field thành field có thể tìm kiếm.
+
+### Một document hoàn chỉnh
+
+Ví dụ sau là một document sản phẩm. Cùng một JSON có field đơn giản, object, mảng giá trị và mảng object:
+
+```json
+{
+  "product_id": "P-100",
+  "name": "Tai nghe chống ồn",
+  "price": 1299.0,
+  "quantity": 12,
+  "available": true,
+  "published_at": "2025-02-10T08:30:00Z",
+  "brand": {
+    "name": "Acme"
+  },
+  "tags": ["audio", "wireless"],
+  "specs": [
+    {"key": "color", "value": "đen"},
+    {"key": "battery_hours", "value": "30"}
+  ]
+}
+```
+
+Trong ví dụ này, `product_id` phù hợp với `keyword`, `name` phù hợp với `text`, `price` và `quantity` là kiểu số, còn `specs` có thể cần `nested` nếu phải giữ quan hệ giữa từng `key` và `value`. Phần sau sẽ giải thích vì sao không nên chọn kiểu dữ liệu chỉ dựa trên hình thức JSON.
+
+## Index document field và _source
+
+### Index là gì
+
+**Index** là một không gian tên logic cho các document có liên quan. Ví dụ, `products` có thể chứa sản phẩm để tìm kiếm; `orders-2025` có thể chứa đơn hàng của một giai đoạn.
+
+Index không tương đương hoàn toàn với một bảng quan hệ. Mỗi index được chia thành một hoặc nhiều primary shard, có thể có replica shard, và mapping của index áp dụng cho các document trong đó. Vì vậy, số lượng index và shard cũng là quyết định vận hành, không chỉ là quyết định đặt tên.
+
+### Document là gì
+
+**Document** là đơn vị đọc và ghi cơ bản của Elasticsearch. Document được gửi dưới dạng JSON và có thể được tạo với `_id` do ứng dụng chỉ định hoặc để Elasticsearch tự sinh.
+
+```json
+{
+  "_index": "products",
+  "_id": "prod-001",
+  "_source": {
+    "product_id": "P-100",
+    "name": "Tai nghe chống ồn",
+    "available": true
+  }
+}
+```
+
+`_index` và `_id` trong phần minh họa trên là metadata của kết quả API. Ba field `product_id`, `name` và `available` là dữ liệu ứng dụng nằm trong `_source`.
+
+### Field là gì
+
+**Field** là một giá trị hoặc đường dẫn giá trị trong document. Field có thể là chuỗi, số, boolean, object hoặc danh sách giá trị cùng kiểu.
+
+```json
+{
+  "name": "Tai nghe chống ồn",
+  "tags": ["audio", "wireless"],
+  "brand": {"name": "Acme"}
+}
+```
+
+Ở đây `name` và `tags` là field trực tiếp. `brand.name` là field lồng bên trong object. Elasticsearch không có một kiểu `array` riêng: một mảng như `tags` dùng mapping của phần tử, chẳng hạn `keyword` hoặc `text`.
+
+### _source là gì
+
+`_source` là bản JSON gốc của document tại thời điểm index. Elasticsearch thường lưu `_source` để trả kết quả `_search`, `GET` document và hỗ trợ reindex. Dữ liệu dùng để tìm kiếm được tổ chức trong các cấu trúc lập chỉ mục riêng theo mapping.
+
+```http
+GET /products/_doc/prod-001
+```
+
+Nếu `name` là `text`, Elasticsearch phân tích chuỗi để tạo các token tìm kiếm. Những token đó không làm thay đổi chuỗi `"Tai nghe chống ồn"` trong `_source`.
+
+<Callout type="warn" title="_source không phải mapping">
+  Một field vẫn có thể xuất hiện trong `_source` nhưng không được lập chỉ mục nếu mapping đặt `index: false` hoặc `dynamic: false` khiến field mới không được thêm vào mapping. Ngược lại, việc thấy một giá trị trong `_source` không đảm bảo mọi loại query đều phù hợp với giá trị đó.
+</Callout>
+
+## Mapping và dynamic mapping
+
+### Mapping là gì
+
+**Mapping** là schema của index. Mapping gán data type cho field và có thể cấu hình cách field được lập chỉ mục, phân tích hoặc lưu.
+
+Mapping tối thiểu cho một phần document sản phẩm có thể như sau:
+
+```json
+{
+  "mappings": {
+    "properties": {
+      "product_id": {"type": "keyword"},
+      "name": {"type": "text"},
+      "price": {"type": "double"},
+      "available": {"type": "boolean"}
+    }
+  }
+}
+```
+
+Mapping không phải validation đầy đủ như schema của một cơ sở dữ liệu ứng dụng. Tuy nhiên, Elasticsearch dùng nó để quyết định field nào là chuỗi được phân tích, field nào là số có thể range query và field nào có thể aggregate.
+
+### Dynamic mapping hoạt động ra sao
+
+Khi chưa có mapping cho một field mới, **dynamic mapping** cho phép Elasticsearch tự thêm field và suy luận data type từ giá trị đầu tiên nhìn thấy. Ví dụ:
+
+```http
+PUT /events-dynamic/_doc/event-001
+{
+  "service": "checkout",
+  "retry_count": 2,
+  "ok": true,
+  "occurred_at": "2025-02-10T08:30:00Z"
+}
+```
+
+Thông thường Elasticsearch suy luận `retry_count` là kiểu số nguyên, `ok` là `boolean`, chuỗi ngày có thể được nhận diện là `date` theo cấu hình date detection, còn chuỗi thông thường thường được map thành `text` kèm một sub-field `keyword`. Kiểu cụ thể cần được kiểm tra bằng `GET /events-dynamic/_mapping`, vì cấu hình cluster và mapping hiện có cũng ảnh hưởng kết quả.
+
+Dynamic mapping hữu ích khi khám phá dữ liệu hoặc ingest dữ liệu có schema thay đổi. Nó cũng có rủi ro: một giá trị đầu tiên có thể khóa kiểu field theo hướng không phù hợp, và các key động không kiểm soát có thể tạo quá nhiều field.
+
+### Chọn explicit mapping hay dynamic mapping
+
+Với field quan trọng cho search, filter, sort hoặc aggregation, nên khai báo **explicit mapping** trước khi ingest dữ liệu. Có thể dùng dynamic mapping có kiểm soát cho phần mở rộng:
+
+```http
+PUT /events-controlled
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "event_id": {"type": "keyword"},
+      "message": {"type": "text"}
+    }
+  }
+}
+```
+
+`dynamic: "strict"` khiến document bị từ chối khi chứa field chưa khai báo. Nếu muốn giữ field lạ trong `_source` nhưng không lập chỉ mục, dùng `dynamic: false` ở cấp phù hợp. Hai lựa chọn này giúp schema drift — schema trôi dạt ngoài dự kiến — lộ ra sớm thay vì âm thầm tạo mapping mới.
+
+Mapping của field đã có dữ liệu không thể đổi tùy ý từ `text` sang `keyword`, hoặc từ `object` sang `nested`. Cách an toàn là tạo index mới với mapping đúng rồi reindex dữ liệu sang đó.
+
+## Các kiểu dữ liệu quan trọng
+
+### keyword
+
+`keyword` lưu chuỗi như một giá trị nguyên vẹn. Nó phù hợp cho mã, trạng thái, tên danh mục, email, tag và các giá trị cần filter, sort hoặc aggregation.
+
+```json
+{
+  "status": "paid",
+  "category": "headphones",
+  "tags": ["audio", "wireless"]
+}
+```
+
+Mapping tương ứng:
+
+```json
+{
+  "properties": {
+    "status": {"type": "keyword"},
+    "category": {"type": "keyword"},
+    "tags": {"type": "keyword"}
+  }
+}
+```
+
+Query `term` trên `status: "paid"` cần giá trị chính xác. `keyword` không tự tách `Tai nghe` thành các token riêng để full-text search.
+
+### text
+
+`text` dành cho nội dung cần full-text search. Elasticsearch đưa chuỗi qua analyzer, tức bộ phận chuẩn hóa và tách chuỗi thành các token trước khi lập chỉ mục.
+
+```json
+{
+  "title": "Tai nghe chống ồn cho văn phòng"
+}
+```
+
+```json
+{
+  "properties": {
+    "title": {"type": "text"}
+  }
+}
+```
+
+`text` phù hợp với `match` hoặc `match_phrase`. Nó không phù hợp trực tiếp cho sort và aggregation vì các token không phải là một giá trị nguyên vẹn. Khi cần cả hai cách dùng, khai báo multi-field:
+
+```json
+{
+  "title": {
+    "type": "text",
+    "fields": {
+      "keyword": {"type": "keyword", "ignore_above": 256}
+    }
+  }
+}
+```
+
+Khi đó dùng `title` cho full-text search và `title.keyword` cho sort hoặc aggregation.
+
+### Kiểu số
+
+Các kiểu số gồm `integer`, `long`, `float`, `double`, `half_float`, `scaled_float` và một số kiểu khác. Chọn theo miền giá trị và phép toán cần dùng, thay vì lưu mọi thứ dưới dạng chuỗi.
+
+| Kiểu | Dùng khi | Ví dụ |
+| --- | --- | --- |
+| `integer` | Số nguyên trong miền 32-bit | số lượng sản phẩm |
+| `long` | Số nguyên lớn hơn miền của `integer` | timestamp hoặc counter lớn |
+| `float` / `double` | Số thực; `double` có độ chính xác cao hơn | điểm số, tỷ lệ |
+| `scaled_float` | Tiền hoặc số thập phân có số chữ số cố định | giá với `scaling_factor` |
+
+```json
+{
+  "quantity": 12,
+  "rating": 4.8,
+  "price": 1299.0
+}
+```
+
+```json
+{
+  "properties": {
+    "quantity": {"type": "integer"},
+    "rating": {"type": "double"},
+    "price": {"type": "scaled_float", "scaling_factor": 100}
+  }
+}
+```
+
+Với `scaled_float` ở trên, `1299.0` được lưu theo hệ số 100 để phù hợp với các phép tính giá có hai chữ số thập phân. Tránh dùng `float` cho tiền nếu sai số nhị phân là vấn đề; hãy chọn `scaled_float` hoặc đơn vị tiền nguyên như cent theo yêu cầu nghiệp vụ.
+
+### date
+
+`date` biểu diễn thời điểm để range query, sort và time aggregation. Elasticsearch lưu date dưới dạng số nhưng API thường nhận chuỗi theo format đã cấu hình.
+
+```json
+{
+  "published_at": "2025-02-10T08:30:00Z"
+}
+```
+
+```json
+{
+  "properties": {
+    "published_at": {"type": "date"}
+  }
+}
+```
+
+Nên thống nhất timezone và format giữa các producer. ISO 8601 với timezone rõ ràng, như `2025-02-10T08:30:00Z`, thường dễ vận hành hơn chuỗi ngày tùy ý.
+
+### boolean
+
+`boolean` biểu diễn đúng hai trạng thái `true` và `false`. Dùng kiểu này cho cờ như `available`, `deleted` hoặc `is_public` thay vì chuỗi `"yes"` và `"no"`.
+
+```json
+{
+  "available": true,
+  "is_public": false
+}
+```
+
+```json
+{
+  "properties": {
+    "available": {"type": "boolean"},
+    "is_public": {"type": "boolean"}
+  }
+}
+```
+
+### object
+
+`object` là kiểu mặc định cho JSON object. Các field con được lập chỉ mục theo đường dẫn như `brand.name`.
+
+```json
+{
+  "brand": {
+    "name": "Acme",
+    "country": "VN"
+  }
+}
+```
+
+```json
+{
+  "properties": {
+    "brand": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "keyword"},
+        "country": {"type": "keyword"}
+      }
+    }
+  }
+}
+```
+
+`object` phù hợp khi object là một nhóm thuộc tính đơn hoặc khi không cần giữ quan hệ giữa các phần tử trong mảng object. Với mảng object có các cặp thuộc tính phải đi cùng nhau, cần cân nhắc `nested`.
+
+### nested
+
+`nested` là biến thể của object dùng cho mảng object. Elasticsearch lập chỉ mục mỗi phần tử nested như một hidden document riêng, nhờ đó query có thể giữ quan hệ giữa các field trong cùng một phần tử.
+
+```json
+{
+  "specs": [
+    {"key": "color", "value": "đen"},
+    {"key": "battery_hours", "value": "30"}
+  ]
+}
+```
+
+```json
+{
+  "properties": {
+    "specs": {
+      "type": "nested",
+      "properties": {
+        "key": {"type": "keyword"},
+        "value": {"type": "keyword"}
+      }
+    }
+  }
+}
+```
+
+Khi query `specs` bằng nested query, điều kiện `key` và `value` có thể được yêu cầu khớp trong cùng một phần tử. Đổi lại, nested tốn cấu trúc lập chỉ mục và query phức tạp hơn object. Không nên chọn nested chỉ vì JSON có mảng.
+
+## Vì sao mapping ảnh hưởng indexing và search
+
+### Ảnh hưởng tới indexing
+
+Trong lúc indexing, Elasticsearch đọc mapping để quyết định cách chuyển giá trị thành cấu trúc phục vụ tìm kiếm. Cùng là chuỗi nhưng `keyword` và `text` tạo ra hành vi khác nhau.
+
+```json
+{
+  "status": "paid",
+  "description": "Đơn hàng đã thanh toán"
+}
+```
+
+Nếu `status` là `keyword`, toàn bộ `paid` là một giá trị chính xác. Nếu `description` là `text`, analyzer có thể tách chuỗi thành nhiều token. Với field số và date, mapping cho phép Elasticsearch sắp xếp và lọc theo giá trị thay vì so sánh chuỗi.
+
+Mapping cũng là một phần của hợp đồng ingest. Gửi `"quantity": "twelve"` vào field `integer` sẽ gây lỗi parse và document có thể bị từ chối. Lỗi này nên được phát hiện ở pipeline hoặc ứng dụng thay vì để dữ liệu sai đi vào index.
+
+### Ảnh hưởng tới search
+
+Kiểu field giới hạn và định hướng các query hợp lệ:
+
+| Nhu cầu | Kiểu hoặc cấu hình thường dùng | Query hoặc thao tác ví dụ |
+| --- | --- | --- |
+| Khớp chính xác trạng thái | `keyword` | `term`, filter |
+| Tìm từ trong tiêu đề | `text` | `match`, `match_phrase` |
+| Lọc theo khoảng giá | `integer`, `double`, `scaled_float` | `range` |
+| Lọc theo thời gian | `date` | `range`, date histogram |
+| Tổng hợp theo danh mục | `keyword` | `terms` aggregation |
+| Sort theo tên | `keyword` hoặc multi-field | sort trên `name.keyword` |
+
+Ví dụ, query `term` trên một field `text` thường không cho kết quả như người dùng mong đợi vì `text` đã được phân tích. Ngược lại, dùng `match` trên mã cần khớp tuyệt đối có thể làm mất ý nghĩa của mã đó. Chọn query theo mapping và chọn mapping theo cách ứng dụng sẽ truy vấn.
+
+## Object và nested
+
+### Khi object làm mất quan hệ phần tử
+
+Với một mảng object, `object` mặc định làm phẳng các field con thành các mảng giá trị. Ví dụ:
+
+```json
+{
+  "offers": [
+    {"seller": "A", "price": 100},
+    {"seller": "B", "price": 80}
+  ]
+}
+```
+
+Nếu `offers` là `object`, Elasticsearch có thể nhìn thấy `offers.seller: ["A", "B"]` và `offers.price: [100, 80]`. Query tìm `seller: "A"` và `price: 80` có thể khớp dù không có offer nào của seller A có giá 80. Mối quan hệ giữa hai giá trị đã bị mất trong cấu trúc lập chỉ mục.
+
+### Khi nested giữ quan hệ phần tử
+
+Khai báo `offers` là `nested` để giữ từng cặp seller-price:
+
+```json
+{
+  "properties": {
+    "offers": {
+      "type": "nested",
+      "properties": {
+        "seller": {"type": "keyword"},
+        "price": {"type": "double"}
+      }
+    }
+  }
+}
+```
+
+Query cần chỉ rõ `path` và đặt các điều kiện trong `nested`:
+
+```http
+GET /products/_search
+{
+  "query": {
+    "nested": {
+      "path": "offers",
+      "query": {
+        "bool": {
+          "filter": [
+            {"term": {"offers.seller": "A"}},
+            {"range": {"offers.price": {"lte": 100}}}
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+Trong trường hợp này, hai điều kiện phải khớp trên cùng một phần tử `offers`. Hãy dùng `nested` khi tính đúng đắn của quan hệ phần tử quan trọng hơn chi phí lưu trữ và query bổ sung.
+
+## Tạo index mapping và document bằng REST API
+
+### Tạo index với explicit mapping
+
+Request sau tạo một index sản phẩm với mapping nhất quán với document ở phần tiếp theo. `dynamic: "strict"` giúp phát hiện field ngoài hợp đồng ngay khi ingest.
+
+```bash
+curl -X PUT "http://localhost:9200/products" \
+  -H "Content-Type: application/json" \
+  -d '
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "product_id": {"type": "keyword"},
+      "name": {
+        "type": "text",
+        "fields": {
+          "keyword": {"type": "keyword", "ignore_above": 256}
+        }
+      },
+      "price": {"type": "double"},
+      "quantity": {"type": "integer"},
+      "available": {"type": "boolean"},
+      "published_at": {"type": "date"},
+      "brand": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "keyword"}
+        }
+      },
+      "tags": {"type": "keyword"},
+      "specs": {
+        "type": "nested",
+        "properties": {
+          "key": {"type": "keyword"},
+          "value": {"type": "keyword"}
+        }
+      }
+    }
+  }
+}
+'
+```
+
+Index name `products` được tạo cùng mapping. Trong môi trường thực tế, settings như số shard và replica cần được quyết định theo kích thước và yêu cầu vận hành, không nên sao chép máy móc từ ví dụ nhỏ này.
+
+### Index một document
+
+Dùng `_doc/prod-001` để chỉ định `_id`. Mọi field trong request đều đã có trong mapping ở trên, nên request không bị `dynamic: "strict"` từ chối.
+
+```bash
+curl -X PUT "http://localhost:9200/products/_doc/prod-001?refresh=wait_for" \
+  -H "Content-Type: application/json" \
+  -d '
+{
+  "product_id": "P-100",
+  "name": "Tai nghe chống ồn",
+  "price": 1299.0,
+  "quantity": 12,
+  "available": true,
+  "published_at": "2025-02-10T08:30:00Z",
+  "brand": {
+    "name": "Acme"
+  },
+  "tags": ["audio", "wireless"],
+  "specs": [
+    {"key": "color", "value": "đen"},
+    {"key": "battery_hours", "value": "30"}
+  ]
+}
+'
+```
+
+`refresh=wait_for` chỉ dùng để ví dụ có thể search ngay sau khi request hoàn tất. Trong luồng ghi có throughput cao, không nên thêm tham số này vào mọi request nếu không cần độ trễ hiển thị thấp.
+
+### Kiểm tra mapping và document
+
+Sau khi tạo index, kiểm tra mapping và dữ liệu bằng hai request đọc:
+
+```bash
+curl "http://localhost:9200/products/_mapping?pretty"
+curl "http://localhost:9200/products/_doc/prod-001?pretty"
+```
+
+Nếu request index bị lỗi, đọc phần `error.type` và `error.reason`. Lỗi `mapper_parsing_exception` thường cho thấy giá trị không phù hợp với data type, còn lỗi do field lạ với `dynamic: "strict"` cho thấy producer cần cập nhật contract hoặc mapping.
+
+## Lỗi thiết kế thường gặp
+
+### Chọn text cho mọi chuỗi
+
+Mã đơn hàng, trạng thái và category thường cần khớp chính xác. Map tất cả thành `text` khiến filter, sort hoặc aggregation khó dùng và có thể tạo kết quả sai kỳ vọng.
+
+```json
+{
+  "status": {"type": "keyword"},
+  "description": {"type": "text"}
+}
+```
+
+Hãy phân loại theo thao tác cần thực hiện: full-text dùng `text`, còn giá trị nguyên vẹn dùng `keyword`. Nếu cần cả hai, dùng multi-field.
+
+### Tin hoàn toàn vào dynamic mapping
+
+Dynamic mapping có thể map chuỗi đầu tiên thành kiểu không phù hợp với các giá trị về sau. Ví dụ `"00123"` được hiểu là mã có thể khác hoàn toàn với số `123`, và chuỗi ngày có thể bị nhận diện theo date detection ngoài chủ ý.
+
+Hãy khai báo explicit mapping cho field nghiệp vụ quan trọng. Với field động, giới hạn phạm vi bằng `dynamic_templates`, `dynamic: false` hoặc `dynamic: strict` tùy mục tiêu kiểm soát.
+
+### Đổi kiểu field trên index đang có dữ liệu
+
+Không thể đổi trực tiếp field `price` từ `text` sang `double`, hoặc đổi `offers` từ `object` sang `nested`, trong index hiện có. Xóa và tạo lại index có thể làm mất dữ liệu.
+
+Quy trình an toàn là tạo index version mới, reindex dữ liệu với transform nếu cần, kiểm tra kết quả rồi chuyển alias hoặc cập nhật ứng dụng sang index mới. Hãy xem mapping là hợp đồng có vòng đời, không phải cấu hình tạm thời.
+
+### Lạm dụng nested và tạo quá nhiều field
+
+Mỗi phần tử nested có chi phí lập chỉ mục như một hidden document. Dùng nested cho mọi object làm tăng kích thước và độ phức tạp query. Ở chiều ngược lại, cho phép key tùy ý như `attributes.<key>` không giới hạn có thể làm mapping phình to và chạm giới hạn field.
+
+Chỉ chọn nested khi cần truy vấn nhiều điều kiện trên cùng phần tử. Với thuộc tính thật sự động, cân nhắc cấu trúc cố định, `flattened` hoặc giới hạn key theo domain sau khi đo đạc use case.
+
+## Nguyên tắc đặt model
+
+### Bắt đầu từ cách truy vấn
+
+Liệt kê các truy vấn và aggregation chính trước khi chốt JSON. Ví dụ, nếu luôn lọc theo `tenant_id`, `status` và khoảng `created_at`, hãy map chúng thành `keyword`, `keyword` và `date` tương ứng.
+
+```json
+{
+  "tenant_id": "tenant-a",
+  "status": "paid",
+  "created_at": "2025-02-10T08:30:00Z"
+}
+```
+
+Model tốt là model làm các truy vấn quan trọng trở nên trực tiếp và dễ kiểm tra. Đừng mô phỏng quan hệ ứng dụng theo kiểu quan hệ bảng nếu ứng dụng chủ yếu đọc một document hoàn chỉnh.
+
+### Định rõ biên giới index
+
+Một index nên có mục đích rõ: cùng vòng đời, cùng cách truy vấn và mapping tương thích. Tách index khi dữ liệu có retention, quyền truy cập hoặc schema khác nhau; tránh tạo một index cho mọi loại dữ liệu chỉ vì tiện ingest.
+
+Đừng tạo index theo từng document. Khi cần phân vùng theo thời gian hoặc tenant, hãy cân nhắc data stream, index pattern và chiến lược shard thay vì nhân số index không kiểm soát.
+
+### Giữ schema ổn định và có version
+
+Đặt mapping trước khi ingest production. Kiểm thử các giá trị biên như chuỗi rỗng, số lớn, timezone, null và mảng rỗng. Khi schema cần thay đổi không tương thích, tạo index version mới và chuyển alias sau khi xác minh.
+
+Cách này tách việc thay đổi model khỏi việc đọc ghi đang chạy. Nó cũng tạo đường lui rõ ràng nếu dữ liệu reindex có vấn đề.
+
+### Đặt tên nhất quán
+
+Dùng một quy ước cho tên field và giữ nguyên trong mọi producer. Tên như `created_at`, `tenant_id`, `is_active` thể hiện rõ ý nghĩa và kiểu dữ liệu hơn các tên mơ hồ như `date`, `id` hoặc `flag`.
+
+Tránh dùng cùng một field cho nhiều kiểu dữ liệu ở các document khác nhau trong một index. Nếu hai domain có cùng tên nhưng ý nghĩa khác, đổi tên hoặc tách index để mapping không trở thành nguồn xung đột.
+
+## Index template và data stream
+
+### Index template
+
+**Index template** là mẫu mapping và settings được áp dụng tự động khi một index mới khớp `index_patterns`. Template hữu ích khi index được tạo theo chu kỳ, chẳng hạn `orders-2025-*`, hoặc khi nhiều producer cần dùng cùng contract.
+
+```bash
+curl -X PUT "http://localhost:9200/_index_template/orders-template" \
+  -H "Content-Type: application/json" \
+  -d '
+{
+  "index_patterns": ["orders-*"] ,
+  "priority": 100,
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "order_id": {"type": "keyword"},
+        "status": {"type": "keyword"},
+        "created_at": {"type": "date"}
+      }
+    }
+  }
+}
+'
+```
+
+Template chỉ áp dụng cho index được tạo sau đó. Nó không tự sửa mapping của index đã tồn tại. Khi có nhiều template cùng khớp, `priority` giúp kiểm soát template nào thắng ở phần cấu hình xung đột.
+
+### Data stream
+
+**Data stream** là abstraction cho dữ liệu append-only theo thời gian, thường dùng cho logs, metrics và event. Tên data stream trỏ tới các backing index; Elasticsearch có thể rollover backing index theo chính sách lifecycle.
+
+Một template cho data stream cần có `data_stream` và mapping cho `@timestamp`:
+
+```bash
+curl -X PUT "http://localhost:9200/_index_template/app-logs-template" \
+  -H "Content-Type: application/json" \
+  -d '
+{
+  "index_patterns": ["logs-app-*"] ,
+  "data_stream": {},
+  "template": {
+    "mappings": {
+      "properties": {
+        "@timestamp": {"type": "date"},
+        "service": {"type": "keyword"},
+        "message": {"type": "text"}
+      }
+    }
+  }
+}
+'
+```
+
+Sau khi template tồn tại, ghi event vào data stream bằng tên phù hợp:
+
+```bash
+curl -X POST "http://localhost:9200/logs-app-default/_doc" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "@timestamp": "2025-02-10T08:30:00Z",
+    "service": "checkout",
+    "message": "payment completed"
+  }'
+```
+
+Data stream phù hợp khi dữ liệu chủ yếu được thêm mới và có timestamp bắt buộc. Với dữ liệu nghiệp vụ thường xuyên cập nhật hoặc cần xóa theo từng bản ghi, index thông thường kèm alias thường dễ hiểu hơn. Chi tiết lifecycle và rollover thuộc phạm vi vận hành nâng cao; ở mức nền tảng, điều cần nhớ là mapping vẫn phải được quản lý qua template.
+
+## Next steps
+
+- [Mapping và data types](../elasticsearch-core/mapping-datatypes) — đi sâu vào data type, dynamic templates và các tùy chọn mapping.
+- [Indices và documents](../elasticsearch-core/indices-documents) — tìm hiểu vòng đời index, document và các API quản lý liên quan.
+- [Index document đầu tiên](../bat-dau/index-document-dau-tien) — thực hành các thao tác REST cơ bản từ đầu.
+- [Full-text search](../elasticsearch-core/full-text-search) — dùng `text`, analyzer và query cho tìm kiếm ngôn ngữ tự nhiên.
+- [Query DSL](../elasticsearch-core/query-dsl) — tổ chức filter, query và nested query.
+- [Data streams](../data-ingestion/data-streams) — tìm hiểu sâu hơn về data stream cho logs, metrics và time-series.
+
+<Callout type="idea" title="Tóm tắt">
+  Hãy thiết kế từ truy vấn và vòng đời dữ liệu: chọn `keyword` cho giá trị cần khớp chính xác, `text` cho full-text search, kiểu số và `date` cho filter theo giá trị, `nested` chỉ khi cần giữ quan hệ trong mảng object. Khai báo mapping trước khi ingest dữ liệu quan trọng và version hóa index khi schema không thể thay đổi tại chỗ.
+</Callout>

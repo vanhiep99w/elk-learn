@@ -1,27 +1,174 @@
 ---
 title: "Nền tảng"
-description: "Các khái niệm nền tảng để hiểu Elasticsearch và hệ sinh thái Elastic."
+description: "Lộ trình nhập môn giúp bạn hiểu Elasticsearch, Elastic Stack, kiến trúc và mô hình dữ liệu trước khi thực hành."
 ---
 
-Đây là trang khung của nhóm **Nền tảng** trong lộ trình ELK Elasticsearch Ecosystem.
+Nhóm **Nền tảng** là điểm bắt đầu để xây dựng một mô hình tư duy đúng về Elasticsearch và hệ sinh thái Elastic. Bạn sẽ đi từ câu hỏi “Elasticsearch là gì?” đến cách một cluster xử lý dữ liệu, rồi biết khi nào nên chọn Elasticsearch cho bài toán của mình.
 
-<Callout type="info">
-  Nội dung chi tiết của nhóm sẽ được bổ sung lần lượt trong các bài bên dưới.
+<Callout type="info" title="Bạn sẽ học gì trong nhóm này?">
+  Đây là learning path gồm **5 bài**. Mỗi bài giải thích một lớp khái niệm và chuẩn bị cho bài kế tiếp. Nhóm tập trung vào cách hiểu và ra quyết định, không thay thế các bài hướng dẫn cài đặt hay truy vấn thực hành.
 </Callout>
 
 ## Mục lục
 
-- [Phạm vi dự kiến](#phạm-vi-dự-kiến)
-- [Các bài trong nhóm](#các-bài-trong-nhóm)
+- [Nhóm Nền tảng dành cho ai?](#nhóm-nền-tảng-dành-cho-ai)
+  - [Sau nhóm này, bạn có thể](#sau-nhóm-này-bạn-có-thể)
+- [Kiến thức tiên quyết](#kiến-thức-tiên-quyết)
+- [Lộ trình 5 bài](#lộ-trình-5-bài)
+  - [1. Elasticsearch là gì?](#1-elasticsearch-là-gì)
+  - [2. Elastic Stack và ELK](#2-elastic-stack-và-elk)
+  - [3. Kiến trúc Elasticsearch](#3-kiến-trúc-elasticsearch)
+  - [4. Mô hình dữ liệu](#4-mô-hình-dữ-liệu)
+  - [5. Use case và lựa chọn giải pháp](#5-use-case-và-lựa-chọn-giải-pháp)
+- [Cách dùng nhóm tài liệu](#cách-dùng-nhóm-tài-liệu)
+  - [Đọc theo thứ tự](#đọc-theo-thứ-tự)
+  - [Học bằng một use case](#học-bằng-một-use-case)
+- [Thuật ngữ nền tảng cần nắm](#thuật-ngữ-nền-tảng-cần-nắm)
+  - [Hệ thống và tìm kiếm](#hệ-thống-và-tìm-kiếm)
+  - [Dữ liệu và lập chỉ mục](#dữ-liệu-và-lập-chỉ-mục)
+- [Next steps](#next-steps)
 
-## Phạm vi dự kiến
+## Nhóm Nền tảng dành cho ai?
 
-Nhóm này giải thích Elasticsearch, Elastic Stack, kiến trúc phân tán, mô hình dữ liệu và cách chọn giải pháp phù hợp.
+Nhóm này phù hợp với:
 
-## Các bài trong nhóm
+- Người mới làm quen với Elasticsearch hoặc chuyển từ cơ sở dữ liệu quan hệ sang hệ thống tìm kiếm.
+- Developer, data engineer và DevOps muốn hiểu các thành phần của ELK trước khi triển khai.
+- Người cần đánh giá Elasticsearch cho tìm kiếm ứng dụng, phân tích log hoặc observability (quan sát hệ thống).
+- Thành viên trong đội đã dùng Kibana nhưng muốn nối các thao tác hằng ngày với mô hình hệ thống phía sau.
 
-- [Elasticsearch là gì?](./elasticsearch-la-gi) — Giải thích Elasticsearch là gì, cách nó lập chỉ mục và những bài toán nó giải quyết.
-- [Elastic Stack và ELK](./elastic-stack-va-elk) — Phân biệt Elastic Stack, ELK và vai trò của Elasticsearch, Logstash, Kibana cùng Beats.
-- [Kiến trúc Elasticsearch](./kien-truc-elasticsearch) — Tổng quan node, cluster, coordinator, data path và cách một request đi qua hệ thống.
-- [Mô hình dữ liệu](./mo-hinh-du-lieu) — Làm rõ index, document, field, mapping và mối liên hệ giữa các khái niệm dữ liệu.
-- [Use case và lựa chọn giải pháp](./use-cases-va-lua-chon) — So sánh các use case tìm kiếm, log analytics và observability với những lựa chọn thay thế.
+Bạn không cần biết toàn bộ Elastic Stack trước khi bắt đầu. Điều quan trọng là có một bài toán cụ thể để liên hệ với các khái niệm, chẳng hạn như tìm kiếm sản phẩm theo từ khóa hoặc tra cứu log lỗi trong 24 giờ gần nhất.
+
+### Sau nhóm này, bạn có thể
+
+- Giải thích vai trò của Elasticsearch trong Elastic Stack và phân biệt tên gọi **Elastic Stack** với **ELK**.
+- Đọc sơ đồ ở mức khái niệm: cluster gồm các node, request đi vào đâu và dữ liệu được phân phối như thế nào.
+- Phân biệt index, document, field và mapping khi thiết kế dữ liệu.
+- Nhận diện workload phù hợp với Elasticsearch, đồng thời biết những trường hợp nên cân nhắc giải pháp khác.
+- Chọn bài tiếp theo dựa trên mục tiêu: cài đặt local, nạp dữ liệu, viết truy vấn hoặc tìm hiểu triển khai.
+
+## Kiến thức tiên quyết
+
+Bạn có thể đọc nhóm này ngay cả khi mới học Elasticsearch. Để theo kịp các ví dụ, nên có những nền tảng sau:
+
+- **HTTP và JSON:** biết một request có method, URL, header và body; biết đọc object và array trong JSON. Ví dụ, `GET /products/_search` là một request tìm kiếm, còn body JSON mô tả điều kiện tìm.
+- **Dòng lệnh cơ bản:** biết mở terminal, chạy lệnh và đọc log. Kỹ năng này sẽ hữu ích khi chuyển sang các bài cài đặt.
+- **Khái niệm dữ liệu:** hiểu bản ghi, trường dữ liệu và kiểu dữ liệu ở mức cơ bản. Không cần biết trước thuật ngữ `shard` hay `inverted index`.
+- **Một bài toán muốn giải:** ví dụ tìm sản phẩm, phân tích log web hoặc theo dõi lỗi ứng dụng. Bài toán này giúp bạn đánh giá trade-off (đánh đổi) thay vì học thuật ngữ rời rạc.
+
+<Callout type="idea" title="Nếu bạn chưa có đủ kiến thức tiên quyết">
+  Hãy bắt đầu bằng ví dụ tìm kiếm sản phẩm. Một document có thể chứa `name`, `category`, `price` và `description`; từ đó bạn sẽ dễ liên hệ với index, field và mapping trong các bài sau.
+</Callout>
+
+## Lộ trình 5 bài
+
+Hãy đọc theo thứ tự nếu bạn chưa từng làm việc với Elasticsearch. Mỗi bài có thể đứng độc lập khi bạn cần tra cứu nhanh một khái niệm.
+
+### 1. Elasticsearch là gì?
+
+Bài đầu tiên xây dựng bức tranh tổng quan: Elasticsearch dùng để làm gì, khác với việc lưu trữ dữ liệu thuần túy ra sao và vì sao lập chỉ mục giúp tìm kiếm nhanh hơn. Bạn sẽ có vocabulary (từ vựng) chung trước khi đọc về cluster và dữ liệu.
+
+Đọc [Elasticsearch là gì?](./elasticsearch-la-gi) trước khi đi sâu vào các thành phần của Stack.
+
+### 2. Elastic Stack và ELK
+
+Bài này đặt Elasticsearch vào đúng hệ sinh thái. Bạn sẽ phân biệt Elastic Stack — tên gọi rộng cho tập hợp sản phẩm — với ELK — cách gọi quen thuộc cho Elasticsearch, Logstash và Kibana — và hiểu vai trò của Beats trong các pipeline thu thập dữ liệu.
+
+Đọc [Elastic Stack và ELK](./elastic-stack-va-elk) để biết dữ liệu thường đi từ nguồn vào hệ thống như thế nào.
+
+### 3. Kiến trúc Elasticsearch
+
+Sau khi biết các thành phần, bạn cần hiểu cách Elasticsearch vận hành như một hệ thống phân tán. Bài này giới thiệu cluster, node, vai trò xử lý request và đường đi khái niệm của dữ liệu. Mục tiêu là giúp bạn đọc được một sơ đồ kiến trúc trước khi học deployment.
+
+Đọc [Kiến trúc Elasticsearch](./kien-truc-elasticsearch) để nối request, node và dữ liệu thành một luồng duy nhất.
+
+### 4. Mô hình dữ liệu
+
+Bài này chuyển từ “hệ thống chạy thế nào” sang “dữ liệu được tổ chức ra sao”. Bạn sẽ gặp index, document, field và mapping, cùng mối liên hệ giữa kiểu dữ liệu và khả năng tìm kiếm. Đây là nền tảng trực tiếp cho việc index document và viết query.
+
+Đọc [Mô hình dữ liệu](./mo-hinh-du-lieu) trước khi tạo dữ liệu thực tế.
+
+### 5. Use case và lựa chọn giải pháp
+
+Bài cuối cùng giúp bạn kiểm tra mức độ phù hợp. Tìm kiếm toàn văn, log analytics và observability có yêu cầu khác nhau về độ trễ, dung lượng và cách truy vấn. Bài viết đặt Elasticsearch cạnh các lựa chọn khác để bạn bắt đầu bằng yêu cầu, không phải bằng công cụ.
+
+Đọc [Use case và lựa chọn giải pháp](./use-cases-va-lua-chon) khi bạn cần xác định Elasticsearch có phải lựa chọn hợp lý cho workload của mình hay không.
+
+<Cards>
+  <Card title="Elasticsearch là gì?" href="./elasticsearch-la-gi" description="Bắt đầu với vai trò và cách tiếp cận của Elasticsearch." />
+  <Card title="Elastic Stack và ELK" href="./elastic-stack-va-elk" description="Đặt Elasticsearch vào hệ sinh thái thu thập và phân tích dữ liệu." />
+  <Card title="Kiến trúc Elasticsearch" href="./kien-truc-elasticsearch" description="Hiểu cluster, node và đường đi của request." />
+  <Card title="Mô hình dữ liệu" href="./mo-hinh-du-lieu" description="Nắm index, document, field và mapping." />
+  <Card title="Use case và lựa chọn giải pháp" href="./use-cases-va-lua-chon" description="Đánh giá workload và các lựa chọn phù hợp." />
+</Cards>
+
+## Cách dùng nhóm tài liệu
+
+Không nhất thiết phải đọc mọi bài theo cùng một cách. Chọn một trong hai cách dưới đây để giữ mạch học gắn với mục tiêu của bạn.
+
+### Đọc theo thứ tự
+
+Dành khoảng một buổi cho cả nhóm và ghi lại một câu trả lời sau mỗi bài:
+
+1. **Elasticsearch giải quyết vấn đề gì?**
+2. **Những thành phần nào tạo thành luồng dữ liệu?**
+3. **Một request và dữ liệu đi qua cluster ra sao?**
+4. **Dữ liệu của mình sẽ được mô hình hóa như thế nào?**
+5. **Vì sao Elasticsearch phù hợp hoặc chưa phù hợp với use case?**
+
+Nếu chưa trả lời được một câu, hãy quay lại bài tương ứng thay vì chuyển ngay sang phần nâng cao. Các bài sau nhóm **Bắt đầu** sẽ dễ hiểu hơn khi bạn đã trả lời được cả năm câu hỏi.
+
+### Học bằng một use case
+
+Chọn một tập dữ liệu nhỏ và giữ nó xuyên suốt learning path. Chẳng hạn, với log ứng dụng, hãy xác định:
+
+- Nguồn phát sinh log và thành phần có thể thu thập chúng.
+- Trường cần tìm như `service.name`, `log.level` và `message`.
+- Người dùng cần xem nhanh lỗi mới nhất hay phân tích xu hướng theo thời gian.
+- Yêu cầu về thời gian phản hồi, thời gian lưu giữ và chi phí vận hành.
+
+Sau mỗi bài, quay lại cùng use case để kiểm tra hiểu biết. Cách này biến một thuật ngữ thành một quyết định cụ thể, ví dụ chọn field nào cần tìm kiếm hoặc xác định có cần pipeline thu thập hay không.
+
+## Thuật ngữ nền tảng cần nắm
+
+Bảng dưới đây là bản đồ từ vựng tối thiểu. Các bài con sẽ giải thích chi tiết hơn trong đúng ngữ cảnh, vì vậy bạn không cần ghi nhớ mọi chi tiết ngay từ lần đọc đầu tiên.
+
+### Hệ thống và tìm kiếm
+
+| Thuật ngữ | Hiểu ngắn gọn | Câu hỏi nên tự hỏi |
+| --- | --- | --- |
+| **Cluster** | Nhóm một hoặc nhiều node cùng làm việc như một hệ thống Elasticsearch. | Nếu một node gặp sự cố, dữ liệu và request còn được phục vụ thế nào? |
+| **Node** | Một tiến trình Elasticsearch tham gia vào cluster và đảm nhiệm các vai trò nhất định. | Node này lưu dữ liệu, xử lý request hay điều phối? |
+| **Shard** | Phân vùng dữ liệu giúp index có thể được phân phối và xử lý song song. | Số lượng shard có phù hợp với kích thước và tốc độ tăng dữ liệu không? |
+| **Inverted index** | Cấu trúc lập chỉ mục ánh xạ từ term (từ hoặc token) tới các document chứa term đó. | Trường này cần full-text search hay chỉ cần lọc chính xác? |
+| **Query** | Điều kiện mô tả dữ liệu cần tìm hoặc cách tính điểm phù hợp. | Tôi đang muốn tìm gần đúng, lọc chính xác hay tổng hợp? |
+| **Aggregation** | Phép tính tóm tắt dữ liệu, chẳng hạn đếm theo `status_code` hoặc tính trung bình theo thời gian. | Kết quả cần trả về từng document hay một xu hướng tổng hợp? |
+
+### Dữ liệu và lập chỉ mục
+
+| Thuật ngữ | Hiểu ngắn gọn | Ví dụ |
+| --- | --- | --- |
+| **Index** | Không gian logic chứa các document có mục đích hoặc cấu trúc gần nhau. | `products` chứa các document sản phẩm. |
+| **Document** | Một đơn vị dữ liệu dạng JSON được Elasticsearch lập chỉ mục. | Một sản phẩm với `name`, `price` và `category`. |
+| **Field** | Một thuộc tính bên trong document. | `price` là field số; `description` là field văn bản. |
+| **Mapping** | Quy tắc mô tả cách Elasticsearch hiểu và lập chỉ mục từng field. | Khai báo `price` là `double` và `created_at` là `date`. |
+| **Analyzer** | Chuỗi xử lý văn bản khi index hoặc tìm kiếm, thường gồm tách token và chuẩn hóa. | Tách câu “giày chạy bộ” thành các term để tìm kiếm toàn văn. |
+| **Document ID** | Định danh của một document trong index. | `products/_doc/p-1001` xác định một sản phẩm cụ thể. |
+
+<Callout type="warn" title="Đừng đồng nhất index với bảng SQL">
+  Index và bảng đều là nơi tổ chức dữ liệu, nhưng cách thiết kế và cách truy vấn khác nhau. Hãy đọc về mapping, shard và analyzer trước khi bê nguyên mô hình quan hệ sang Elasticsearch.
+</Callout>
+
+## Next steps
+
+Sau khi hoàn tất nhóm Nền tảng, hãy chọn hướng đi theo mục tiêu:
+
+- Muốn tự tay chạy hệ thống: chuyển sang nhóm [Bắt đầu](../bat-dau), bắt đầu với cài đặt Docker Compose hoặc native.
+- Muốn gửi request và xem kết quả: học [Kibana Dev Tools](../bat-dau/kibana-dev-tools), sau đó làm [index document đầu tiên](../bat-dau/index-document-dau-tien).
+- Muốn luyện truy vấn: tiếp tục với [truy vấn đầu tiên](../bat-dau/truy-van-dau-tien) và dùng sample data để có dữ liệu nhất quán.
+- Muốn triển khai thật: đọc nhóm [Deployment](../deployment), bắt đầu từ topology và các yêu cầu về high availability.
+- Muốn làm việc với log hoặc observability: chuyển sang nhóm [Observability và Security](../observability-security) sau khi đã nắm pipeline và mô hình dữ liệu.
+
+<Callout type="idea" title="Mốc hoàn thành">
+  Bạn đã sẵn sàng đi tiếp khi có thể vẽ bằng vài ô đơn giản luồng **nguồn dữ liệu → thành phần thu thập → Elasticsearch → Kibana**, mô tả document mẫu của mình và giải thích vì sao workload đó cần tìm kiếm, lọc hay aggregation.
+</Callout>
