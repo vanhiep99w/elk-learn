@@ -13,6 +13,8 @@ description: "Tổ chức Elasticsearch Query DSL để lọc, tìm kiếm, xế
   - [Mental model của một search request](#mental-model-của-một-search-request)
   - [Query context và filter context](#query-context-và-filter-context)
 - [Chuẩn bị dữ liệu và chọn loại query](#chuẩn-bị-dữ-liệu-và-chọn-loại-query)
+  - [Mapping của index products](#mapping-của-index-products)
+  - [Dữ liệu mẫu](#dữ-liệu-mẫu)
   - [Term-level query](#term-level-query)
   - [Full-text query](#full-text-query)
 - [Bool query và cách ghép điều kiện](#bool-query-và-cách-ghép-điều-kiện)
@@ -147,13 +149,108 @@ Trong ví dụ này, `match` quyết định độ phù hợp của tiêu đề.
 
 ## Chuẩn bị dữ liệu và chọn loại query
 
-Trước khi viết query, kiểm tra mapping:
+Query chỉ dễ hiểu khi biết chính xác mapping của field. Toàn bộ ví dụ phía dưới dùng cùng một index `products` và mapping được khai báo trong phần này.
+
+### Mapping của index products
+
+Tạo index bằng mapping tường minh trước khi thêm document:
+
+```http
+PUT /products
+{
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "description": {
+        "type": "text"
+      },
+      "brand": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "status": {
+        "type": "keyword"
+      },
+      "price": {
+        "type": "double"
+      },
+      "published_at": {
+        "type": "date"
+      },
+      "tie_breaker_id": {
+        "type": "keyword"
+      },
+      "variants": {
+        "type": "nested",
+        "properties": {
+          "color": {
+            "type": "keyword"
+          },
+          "stock": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Mapping này chủ động tách hai nhu cầu tìm kiếm:
+
+| Field | Kiểu dữ liệu | Query hoặc thao tác phù hợp |
+| --- | --- | --- |
+| `title`, `description`, `brand` | `text` | `match`, `match_phrase`, `multi_match`, highlight |
+| `title.keyword`, `brand.keyword` | `keyword` multi-field | Exact match, sort hoặc aggregation trên toàn bộ giá trị |
+| `category`, `status` | `keyword` | `term`, `terms` và `bool.filter` |
+| `price` | `double` | `range` và sort theo giá |
+| `published_at` | `date` | `range`, sort và phân trang theo thời gian |
+| `tie_breaker_id` | `keyword` | Sort phụ ổn định cho `search_after` |
+| `variants` | `nested` | `nested` query để giữ quan hệ giữa `color` và `stock` của cùng một variant |
+
+`title` là một **multi-field**: Elasticsearch index cùng một giá trị theo hai cách. Field `title` kiểu `text` được analyzer tách thành token để full-text search. Field `title.keyword` giữ nguyên chuỗi để exact match hoặc sort.
+
+Có thể kiểm tra mapping Elasticsearch đang sử dụng bằng:
 
 ```http
 GET /products/_mapping
 ```
 
-Một field `text` được analyzer tách thành token. Một field `keyword` giữ giá trị nguyên vẹn và phù hợp cho exact match, filter, aggregation hoặc sort. Dùng sai loại query thường không phải lỗi JSON; request vẫn chạy nhưng trả về kết quả rỗng hoặc relevance khó đoán.
+<Callout type="warn" title="Tạo mapping trước khi ingest">
+  Nếu `products` đã tồn tại với kiểu field khác, lệnh `PUT /products` sẽ không thay thế mapping cũ. Khi học theo bài này, hãy dùng một index mới hoặc xóa index thử nghiệm rồi tạo lại. Không xóa index production chỉ để thay mapping.
+</Callout>
+
+### Dữ liệu mẫu
+
+Thêm hai document để các query phía dưới có dữ liệu nhất quán:
+
+```http
+POST /products/_bulk?refresh=wait_for
+{"index":{"_id":"sku-100"}}
+{"title":"Camera Mirrorless X1","description":"Camera nhẹ cho du lịch và quay video","brand":"Lumina","category":"camera","status":"published","price":1299.0,"published_at":"2025-01-20T10:30:00Z","tie_breaker_id":"sku-100","variants":[{"color":"black","stock":8},{"color":"silver","stock":0}]}
+{"index":{"_id":"sku-101"}}
+{"title":"Tripod Travel T2","description":"Tripod gọn nhẹ dành cho camera du lịch","brand":"Lumina","category":"tripod","status":"published","price":149.0,"published_at":"2025-01-18T08:00:00Z","tie_breaker_id":"sku-101","variants":[{"color":"black","stock":12}]}
+```
+
+Bulk API dùng định dạng **NDJSON**: mỗi action nằm trên một dòng, document tương ứng nằm ở dòng kế tiếp và payload phải có ký tự xuống dòng ở cuối. `refresh=wait_for` chờ dữ liệu có thể được search mà không buộc refresh ngay lập tức.
+
+Bây giờ có thể chọn query dựa trên mapping. Field `text` cần full-text query vì analyzer xử lý input. Field `keyword`, số và ngày thường dùng term-level query để so sánh giá trị chính xác hoặc khoảng giá trị. Dùng sai loại query có thể không gây lỗi JSON, nhưng thường trả về kết quả rỗng hoặc relevance khó đoán.
 
 ### Term-level query
 
@@ -482,25 +579,7 @@ Khi các field là các phần của cùng một nội dung, `type: "cross_field
 
 Mảng object thông thường có thể làm mất mối liên hệ giữa các thuộc tính của cùng một phần tử. Kiểu `nested` lưu mỗi object con như một hidden Lucene document, nên `nested` query có thể yêu cầu các điều kiện khớp trong cùng một phần tử.
 
-Giả sử mapping:
-
-```http
-PUT /products
-{
-  "mappings": {
-    "properties": {
-      "title": { "type": "text" },
-      "variants": {
-        "type": "nested",
-        "properties": {
-          "color": { "type": "keyword" },
-          "stock": { "type": "integer" }
-        }
-      }
-    }
-  }
-}
-```
+Trong [mapping `products` đã tạo ở đầu bài](#mapping-của-index-products), `variants` là `nested`; `variants.color` là `keyword` và `variants.stock` là `integer`. Vì vậy, query có thể yêu cầu màu sắc và tồn kho cùng khớp trên một variant.
 
 Tìm sản phẩm có **một variant vừa màu đen vừa còn hàng**:
 
