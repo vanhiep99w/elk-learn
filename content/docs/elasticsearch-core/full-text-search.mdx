@@ -27,6 +27,7 @@ description: "Thiết kế tìm kiếm văn bản với match, phrase, multi_mat
 - [Autocomplete và search as you type](#autocomplete-và-search-as-you-type)
   - [Mapping với search as you type](#mapping-với-search-as-you-type)
   - [Query bool prefix](#query-bool-prefix)
+  - [Khi nào nên dùng completion suggester?](#khi-nào-nên-dùng-completion-suggester)
 - [Điều khiển relevance và hiển thị kết quả](#điều-khiển-relevance-và-hiển-thị-kết-quả)
   - [Hiểu score ở mức thực hành](#hiểu-score-ở-mức-thực-hành)
   - [Boost field quan trọng](#boost-field-quan-trọng)
@@ -34,9 +35,16 @@ description: "Thiết kế tìm kiếm văn bản với match, phrase, multi_mat
 - [Debug và đánh giá query](#debug-và-đánh-giá-query)
   - [Kiểm tra token bằng Analyze API](#kiểm-tra-token-bằng-analyze-api)
   - [Kiểm tra query đã được rewrite](#kiểm-tra-query-đã-được-rewrite)
+  - [Dùng Profile API để tìm nút thắt](#dùng-profile-api-để-tìm-nút-thắt)
   - [Đo relevance trên tập dữ liệu thật](#đo-relevance-trên-tập-dữ-liệu-thật)
 - [Bảng chọn query nhanh](#bảng-chọn-query-nhanh)
 - [Các lỗi thường gặp](#các-lỗi-thường-gặp)
+  - [Dùng sai field `keyword`](#dùng-sai-field-keyword)
+  - [Đổi analyzer nhưng không reindex](#đổi-analyzer-nhưng-không-reindex)
+  - [Dùng `operator: and` trong `multi_match` sai mục đích](#dùng-operator-and-trong-multi_match-sai-mục-đích)
+  - [Bật fuzziness và prefix không kiểm soát](#bật-fuzziness-và-prefix-không-kiểm-soát)
+  - [Coi `_score` là sự thật tuyệt đối](#coi-_score-là-sự-thật-tuyệt-đối)
+  - [Đưa mọi cú pháp người dùng vào `query_string`](#đưa-mọi-cú-pháp-người-dùng-vào-query_string)
 - [Tóm tắt](#tóm-tắt)
 
 ## Full-text search là gì?
@@ -531,7 +539,8 @@ GET articles-autocomplete/_search
       "fields": [
         "title",
         "title._2gram",
-        "title._3gram"
+        "title._3gram",
+        "title._index_prefix"
       ]
     }
   }
@@ -554,6 +563,45 @@ GET articles-autocomplete/_search
 ```
 
 Autocomplete nên được giới hạn bằng độ dài input tối thiểu hoặc debounce ở client. Không nên gửi một request mới cho từng ký tự đầu tiên khi index lớn; điều đó vừa tạo tải không cần thiết vừa cho kết quả kém ổn định.
+
+### Khi nào nên dùng completion suggester?
+
+`search_as_you_type` phù hợp khi cần tìm trong nội dung đã phân tích và muốn kết quả được xếp hạng theo relevance. Nếu mục tiêu là gợi ý một danh sách prefix cố định, chẳng hạn tên sản phẩm hoặc tên địa điểm, `completion` suggester có thể phù hợp hơn. Completion suggester dùng một cấu trúc dữ liệu trong memory để tra prefix nhanh, nhưng cần lập chỉ mục trường `completion` riêng và không thay thế full-text query.
+
+```http
+PUT product-suggestions
+{
+  "mappings": {
+    "properties": {
+      "suggest": {
+        "type": "completion"
+      }
+    }
+  }
+}
+
+PUT product-suggestions/_doc/1
+{
+  "suggest": {
+    "input": ["Elasticsearch", "Elastic Cloud"]
+  }
+}
+
+GET product-suggestions/_search
+{
+  "suggest": {
+    "product-completion": {
+      "prefix": "Elas",
+      "completion": {
+        "field": "suggest",
+        "size": 5
+      }
+    }
+  }
+}
+```
+
+Hãy chọn `completion` khi cần lookup prefix rất nhanh và dữ liệu gợi ý có cấu trúc. Chọn `search_as_you_type` khi cần tìm trong title hoặc body, hỗ trợ analyzer và trả về document đầy đủ.
 
 ## Điều khiển relevance và hiển thị kết quả
 
@@ -649,7 +697,7 @@ Nếu token ở index time và search time không tương thích, `match` không
 
 ### Kiểm tra query đã được rewrite
 
-Validate API với `explain: true` giúp xem Elasticsearch rewrite query như thế nào:
+Validate API với `explain: true` giúp kiểm tra query có hợp lệ và xem Elasticsearch rewrite query như thế nào:
 
 ```http
 GET articles/_validate/query?explain=true
@@ -679,6 +727,39 @@ GET articles/_search
 ```
 
 `explain` trả về nhiều thông tin và tốn chi phí. Chỉ bật khi debug trên một tập nhỏ, không bật mặc định cho traffic production.
+
+### Dùng Profile API để tìm nút thắt
+
+`profile: true` cho biết thời gian Elasticsearch và Lucene dành cho từng phần query trên từng shard. Đây là công cụ chẩn đoán hiệu năng, không phải đồng hồ đo chính xác latency mà người dùng cuối nhìn thấy. Thời gian mạng, queue, fetch phase và việc merge kết quả không được phản ánh đầy đủ trong phần profile.
+
+```http
+GET articles/_search
+{
+  "profile": true,
+  "size": 10,
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "multi_match": {
+            "query": "tìm kiếm văn bản",
+            "fields": ["title^3", "body"]
+          }
+        }
+      ],
+      "filter": [
+        { "term": { "category": "search" } }
+      ]
+    }
+  }
+}
+```
+
+Đọc `profile.shards[].searches[].query[]` để tìm clause có `time_in_nanos` lớn hoặc tạo nhiều `breakdown`. Chạy cùng query nhiều lần trên dữ liệu đại diện vì cache, segment và phân bổ shard có thể làm kết quả thay đổi. Sau khi tìm được nghi vấn, kiểm tra lại bằng benchmark hoặc đo p95 từ phía ứng dụng; không tối ưu chỉ dựa trên một lần profile.
+
+<Callout type="warn" title="Không bật Profile trong production traffic">
+  `profile` làm request tốn thêm CPU và trả về payload lớn. Chỉ bật tạm thời trên một request debug, giới hạn `size` và tắt trước khi đưa query trở lại ứng dụng.
+</Callout>
 
 ### Đo relevance trên tập dữ liệu thật
 

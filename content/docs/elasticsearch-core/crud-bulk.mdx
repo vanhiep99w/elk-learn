@@ -1,18 +1,561 @@
 ---
 title: "CRUD và Bulk API"
-description: "Thực hiện create, read, update, delete và ghi dữ liệu hàng loạt hiệu quả."
+description: "Thực hiện create, read, update, delete và ghi dữ liệu hàng loạt hiệu quả trong Elasticsearch."
 ---
 
-Trang này sẽ trình bày **crud và bulk api** trong bối cảnh Elasticsearch và hệ sinh thái Elastic.
-
-<Callout type="info">
-  Đây là placeholder page. Nội dung chi tiết, ví dụ thực hành, sơ đồ và troubleshooting sẽ được bổ sung trong detailed-writing pass.
+<Callout type="info" title="Phạm vi của bài viết">
+  Bài viết dùng Elasticsearch REST API để minh họa vòng đời document. Các ví dụ giả sử có một index `products` và dùng Elasticsearch 8.x trở lên. Trong ứng dụng thực tế, hãy gửi request qua client chính thức hoặc HTTP client có hỗ trợ xác thực và timeout.
 </Callout>
 
 ## Mục lục
 
-- [Nội dung dự kiến](#nội-dung-dự-kiến)
+- [Mô hình CRUD và luồng ghi document](#mô-hình-crud-và-luồng-ghi-document)
+  - [Các khái niệm cần nhớ](#các-khái-niệm-cần-nhớ)
+  - [Chuẩn bị index mẫu](#chuẩn-bị-index-mẫu)
+- [Create và index document](#create-và-index-document)
+  - [Tạo document với ID do client chọn](#tạo-document-với-id-do-client-chọn)
+  - [Sinh ID tự động](#sinh-id-tự-động)
+  - [Đảm bảo không ghi đè bằng create](#đảm-bảo-không-ghi-đè-bằng-create)
+- [Read document](#read-document)
+  - [Lấy source và metadata](#lấy-source-và-metadata)
+  - [Đọc theo routing](#đọc-theo-routing)
+- [Update document](#update-document)
+  - [Partial update và upsert](#partial-update-và-upsert)
+  - [Script update an toàn](#script-update-an-toàn)
+- [Delete document](#delete-document)
+- [Refresh và khả năng đọc document](#refresh-và-khả-năng-đọc-document)
+- [Bulk API](#bulk-api)
+  - [Cấu trúc NDJSON](#cấu-trúc-ndjson)
+  - [Các action trong một batch](#các-action-trong-một-batch)
+  - [Batch size, timeout và backoff](#batch-size-timeout-và-backoff)
+  - [Xử lý lỗi từng item](#xử-lý-lỗi-từng-item)
+  - [wait_for_active_shards](#wait_for_active_shards)
+- [Idempotency và optimistic concurrency](#idempotency-và-optimistic-concurrency)
+  - [Idempotency khi retry](#idempotency-khi-retry)
+  - [Optimistic concurrency với seq_no và primary_term](#optimistic-concurrency-với-seq_no-và-primary_term)
+- [Anti-patterns cần tránh](#anti-patterns-cần-tránh)
+- [Troubleshooting](#troubleshooting)
+  - [Bulk trả về HTTP 200 nhưng vẫn có lỗi](#bulk-trả-về-http-200-nhưng-vẫn-có-lỗi)
+  - [429 hoặc timeout khi ghi hàng loạt](#429-hoặc-timeout-khi-ghi-hàng-loạt)
+  - [Document vừa ghi chưa tìm thấy](#document-vừa-ghi-chưa-tìm-thấy)
+  - [Lỗi mapping hoặc version conflict](#lỗi-mapping-hoặc-version-conflict)
+- [Tóm tắt](#tóm-tắt)
 
-## Nội dung dự kiến
+## Mô hình CRUD và luồng ghi document
 
-Bài viết chi tiết sẽ bao gồm các khái niệm chính, cách triển khai hoặc sử dụng, các quyết định thiết kế quan trọng và liên kết đến những bài liên quan.
+CRUD là bốn thao tác cơ bản trên document: **create** (tạo), **read** (đọc), **update** (cập nhật) và **delete** (xóa). Elasticsearch lưu document trong index. Mỗi document có một `_id`, còn `_source` là JSON mà ứng dụng gửi vào.
+
+Khi ghi một document, request đi đến primary shard của index. Primary xử lý thao tác rồi đồng bộ thay đổi sang replica. Vì cơ chế này có độ trễ, một document đã nhận phản hồi thành công chưa nhất thiết đã xuất hiện ngay trong kết quả search. Khả năng đọc đó được điều khiển bởi `refresh`.
+
+### Các khái niệm cần nhớ
+
+| Khái niệm | Ý nghĩa thực tế |
+| --- | --- |
+| `index` | Tập hợp các document có mapping và settings chung. |
+| `_id` | Định danh document trong một index. Chọn ID ổn định giúp retry an toàn hơn. |
+| `_source` | Nội dung JSON gốc được lưu cùng document, nếu không bị tắt hoặc lọc. |
+| primary shard | Shard nhận thao tác ghi đầu tiên. |
+| replica shard | Bản sao của primary, dùng cho khả năng sẵn sàng và đọc. |
+| refresh | Đưa các thay đổi đã ghi vào segment có thể tìm kiếm. Đây không phải là flush dữ liệu xuống đĩa. |
+| `seq_no` và `primary_term` | Metadata dùng để phát hiện một phiên bản document đã bị thay đổi. |
+
+### Chuẩn bị index mẫu
+
+Nên tạo mapping trước khi ghi dữ liệu ổn định. Ví dụ dưới đây lưu tên sản phẩm để tìm kiếm và giá để lọc hoặc tính toán:
+
+```http
+PUT products
+Content-Type: application/json
+
+{
+  "mappings": {
+    "properties": {
+      "name": { "type": "text" },
+      "sku": { "type": "keyword" },
+      "price": { "type": "scaled_float", "scaling_factor": 100 },
+      "stock": { "type": "integer" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}
+```
+
+Dynamic mapping có thể thuận tiện khi thử nghiệm. Tuy nhiên, trong production, mapping tường minh giúp tránh việc một field bị suy luận sai kiểu ngay ở document đầu tiên.
+
+## Create và index document
+
+Dùng `PUT /{index}/_doc/{id}` khi client đã có ID. Nếu document cùng ID đã tồn tại, thao tác này sẽ thay thế toàn bộ `_source` bằng nội dung mới. Dùng `POST /{index}/_doc` khi muốn Elasticsearch sinh một ID ngẫu nhiên.
+
+### Tạo document với ID do client chọn
+
+Ví dụ lưu sản phẩm có SKU ổn định:
+
+```http
+PUT products/_doc/sku-1001?refresh=wait_for
+Content-Type: application/json
+
+{
+  "name": "Tai nghe chống ồn",
+  "sku": "sku-1001",
+  "price": 2499000,
+  "stock": 12,
+  "updated_at": "2025-01-15T09:30:00Z"
+}
+```
+
+Response thành công có `result: "created"` nếu ID chưa tồn tại. Nếu gọi lại cùng request, kết quả thường là `result: "updated"` vì `index` cho phép ghi đè. Đây là lý do ID do client chọn thường hữu ích cho việc retry: cùng một request có thể đưa hệ thống về cùng một trạng thái cuối.
+
+### Sinh ID tự động
+
+```http
+POST products/_doc?refresh=wait_for
+Content-Type: application/json
+
+{
+  "name": "Bàn phím cơ",
+  "sku": "sku-1002",
+  "price": 1899000,
+  "stock": 7
+}
+```
+
+Response trả về `_id` mà Elasticsearch đã sinh. Hãy lưu ID này nếu các thao tác sau cần cập nhật hoặc xóa đúng document. Không nên dùng ID tự động cho một event có thể gửi lại nhiều lần nếu ứng dụng không có cơ chế deduplication.
+
+### Đảm bảo không ghi đè bằng create
+
+`_create` chỉ tạo document nếu ID chưa tồn tại. Nếu ID đã có, Elasticsearch trả về HTTP `409 Conflict` thay vì thay thế document:
+
+```http
+PUT products/_create/sku-1001
+Content-Type: application/json
+
+{
+  "name": "Tên sản phẩm chỉ được đăng ký một lần",
+  "sku": "sku-1001",
+  "price": 100000,
+  "stock": 1
+}
+```
+
+Dùng `_create` cho dữ liệu cần phát hiện duplicate, chẳng hạn một event có `event_id` duy nhất. HTTP `409` ở đây thường là tín hiệu nghiệp vụ, không phải lỗi tạm thời nên không nên retry mù quáng.
+
+<Callout type="warn" title="Index không phải là create">
+  `PUT /products/_doc/sku-1001` là thao tác index có thể ghi đè toàn bộ document. `PUT /products/_create/sku-1001` mới là thao tác create chỉ thành công khi ID chưa tồn tại.
+</Callout>
+
+## Read document
+
+### Lấy source và metadata
+
+Lấy document theo ID không cần chạy query:
+
+```http
+GET products/_doc/sku-1001
+```
+
+Một response thành công có dạng rút gọn như sau:
+
+```json
+{
+  "_index": "products",
+  "_id": "sku-1001",
+  "_version": 3,
+  "_seq_no": 8,
+  "_primary_term": 2,
+  "found": true,
+  "_source": {
+    "name": "Tai nghe chống ồn",
+    "sku": "sku-1001",
+    "price": 2499000,
+    "stock": 12
+  }
+}
+```
+
+Nếu chỉ cần một số field, dùng source filtering để giảm payload:
+
+```http
+GET products/_doc/sku-1001?_source_includes=name,price,stock&_source_excludes=updated_at
+```
+
+`GET` theo ID có thể thấy thay đổi sau khi primary xử lý ghi, trong khi search cần chờ refresh. Nếu ứng dụng cần kiểm tra document vừa ghi bằng ID, ưu tiên Get API hoặc dùng `refresh=wait_for` khi ghi.
+
+### Đọc theo routing
+
+Elasticsearch thường chọn shard dựa trên hash của `_id`. Khi document được index với routing tùy chỉnh, mọi thao tác đọc, cập nhật và xóa cũng phải gửi cùng giá trị routing:
+
+```http
+PUT products/_doc/sku-1001?routing=tenant-a
+Content-Type: application/json
+
+{
+  "name": "Tai nghe của tenant A",
+  "sku": "sku-1001",
+  "tenant_id": "tenant-a"
+}
+
+GET products/_doc/sku-1001?routing=tenant-a
+```
+
+Routing đưa các document cùng khóa vào cùng shard. Điều này có thể làm query theo tenant hiệu quả hơn, nhưng một tenant quá lớn có thể tạo **hot shard**. Nếu dùng routing, hãy khai báo và truyền nó nhất quán ở mọi đường ghi; thiếu routing có thể khiến thao tác không tìm thấy document hoặc ghi nhầm shard.
+
+## Update document
+
+Update API đọc document hiện tại, áp dụng thay đổi rồi ghi lại phiên bản mới. Vì vậy update là thao tác read-modify-write ở phía Elasticsearch và có thể gặp conflict nếu nhiều writer cùng sửa một document.
+
+### Partial update và upsert
+
+`doc` chỉ thay đổi những field được nêu, không xóa các field khác:
+
+```http
+POST products/_update/sku-1001?refresh=wait_for
+Content-Type: application/json
+
+{
+  "doc": {
+    "price": 2399000,
+    "stock": 10,
+    "updated_at": "2025-01-16T10:00:00Z"
+  }
+}
+```
+
+Nếu document có thể chưa tồn tại, thêm `doc_as_upsert: true`. Khi đó, nội dung `doc` vừa là phần update vừa là document mới:
+
+```http
+POST products/_update/sku-1003?refresh=wait_for
+Content-Type: application/json
+
+{
+  "doc": {
+    "name": "Chuột không dây",
+    "sku": "sku-1003",
+    "price": 599000,
+    "stock": 20
+  },
+  "doc_as_upsert": true
+}
+```
+
+Khi cần dữ liệu khởi tạo khác với dữ liệu update, dùng `upsert` thay vì `doc_as_upsert`:
+
+```http
+POST products/_update/sku-1004
+Content-Type: application/json
+
+{
+  "doc": { "stock": 5 },
+  "upsert": {
+    "name": "Webcam USB",
+    "sku": "sku-1004",
+    "price": 899000,
+    "stock": 5
+  }
+}
+```
+
+`doc_as_upsert` không nên trộn với một `script` trong cùng update. Với logic điều kiện, hãy dùng `script` cùng `upsert` và kiểm thử rõ trường hợp document chưa tồn tại.
+
+### Script update an toàn
+
+Painless script phù hợp cho phép tính cần chạy nguyên tử trên document, chẳng hạn tăng tồn kho. Truyền giá trị qua `params` thay vì nối chuỗi input của người dùng vào source script:
+
+```http
+POST products/_update/sku-1001
+Content-Type: application/json
+
+{
+  "script": {
+    "lang": "painless",
+    "source": "if (ctx._source.stock == null) { ctx._source.stock = params.delta; } else { ctx._source.stock += params.delta; }",
+    "params": { "delta": 3 }
+  },
+  "upsert": {
+    "name": "Tai nghe chống ồn",
+    "sku": "sku-1001",
+    "price": 2399000,
+    "stock": 3
+  }
+}
+```
+
+Trong ví dụ này, `upsert` được dùng khi document chưa tồn tại. Khi document đã tồn tại, script chạy trên `_source` hiện tại. Giới hạn script ở các thao tác cần thiết, đặt timeout ở client và tránh nhận `source` tùy ý từ request công khai.
+
+Nếu cần script cũng chạy ở lần upsert, có thể dùng `scripted_upsert: true`. Khi đó script phải tự xử lý `ctx._source` rỗng; chỉ thêm tùy chọn này sau khi đã kiểm thử cả hai nhánh:
+
+```http
+POST products/_update/sku-1005
+Content-Type: application/json
+
+{
+  "scripted_upsert": true,
+  "script": {
+    "lang": "painless",
+    "source": "if (ctx._source.isEmpty()) { ctx._source.name = params.name; ctx._source.sku = params.sku; ctx._source.stock = params.delta; } else { ctx._source.stock += params.delta; }",
+    "params": {
+      "name": "Loa Bluetooth",
+      "sku": "sku-1005",
+      "delta": 1
+    }
+  },
+  "upsert": {}
+}
+```
+
+## Delete document
+
+Xóa theo ID:
+
+```http
+DELETE products/_doc/sku-1001?refresh=wait_for
+```
+
+Nếu document không tồn tại, response có `result: "not_found"`. Đây có thể là kết quả chấp nhận được khi endpoint xóa được thiết kế idempotent. Nếu cần phân biệt rõ trạng thái, ứng dụng có thể map `not_found` thành HTTP `404` ở lớp API của mình.
+
+Xóa theo routing tùy chỉnh phải dùng đúng routing đã dùng lúc index:
+
+```http
+DELETE products/_doc/sku-1001?routing=tenant-a
+```
+
+Xóa theo query (`_delete_by_query`) là một thao tác khác, có thể ảnh hưởng nhiều document và cần cơ chế task, throttling, conflict handling riêng. Không dùng nó thay cho delete theo ID trong đường request đồng bộ thông thường.
+
+## Refresh và khả năng đọc document
+
+Tham số `refresh` xuất hiện trên nhiều API ghi:
+
+| Giá trị | Hành vi | Khi nên dùng |
+| --- | --- | --- |
+| `false` (mặc định) | Không chủ động refresh. Document sẽ searchable ở refresh kế tiếp. | Ghi throughput cao, không cần đọc ngay. |
+| `wait_for` | Chờ refresh định kỳ tiếp theo mà không ép refresh mới. | Request cần chờ document searchable nhưng vẫn muốn giảm refresh cưỡng bức. |
+| `true` | Ép refresh shard liên quan trước khi trả response. | Test hoặc thao tác hiếm cần đọc ngay; tránh dùng đại trà. |
+
+`refresh=true` trên từng request làm tăng số segment nhỏ và chi phí merge. Với batch, thường chọn `refresh=wait_for`, hoặc để mặc định rồi chấp nhận độ trễ refresh. `GET /{index}/_refresh` có thể ép refresh thủ công, nhưng cũng không nên gọi sau mọi document.
+
+<Callout type="idea" title="Gợi ý thực hành">
+  Hãy đo yêu cầu freshness của sản phẩm trước khi chọn `refresh`. “Ghi thành công” và “search thấy ngay” là hai SLA khác nhau. Tách chúng ra thường giúp hệ thống có throughput tốt hơn.
+</Callout>
+
+## Bulk API
+
+Bulk API gom nhiều thao tác vào một request `POST /_bulk` hoặc `POST /{index}/_bulk`. Bulk giảm overhead HTTP, nhưng không biến toàn bộ batch thành một transaction: từng item được xử lý và báo kết quả độc lập.
+
+### Cấu trúc NDJSON
+
+NDJSON (newline-delimited JSON) yêu cầu mỗi JSON object nằm trên một dòng riêng. Một action thường có metadata line; `index`, `create` và `update` có thêm source line. Request phải kết thúc bằng newline cuối cùng và dùng content type `application/x-ndjson`:
+
+```http
+POST _bulk?refresh=wait_for&timeout=30s
+Content-Type: application/x-ndjson
+
+{ "index": { "_index": "products", "_id": "sku-2001" } }
+{ "name": "Hub USB-C", "sku": "sku-2001", "price": 399000, "stock": 30 }
+{ "update": { "_index": "products", "_id": "sku-2002", "retry_on_conflict": 3 } }
+{ "doc": { "stock": 9 }, "doc_as_upsert": true }
+{ "delete": { "_index": "products", "_id": "sku-2003" } }
+```
+
+Không đặt dấu phẩy giữa các dòng và không bọc chúng trong một JSON array. Dù metadata có thể chỉ định `_index`, dùng `POST /products/_bulk` khi toàn bộ item cùng index sẽ dễ đọc hơn:
+
+```http
+POST products/_bulk
+Content-Type: application/x-ndjson
+
+{ "create": { "_id": "sku-2004" } }
+{ "name": "Giá đỡ laptop", "sku": "sku-2004", "price": 499000, "stock": 11 }
+```
+
+### Các action trong một batch
+
+| Action | Dòng metadata | Dòng tiếp theo | Ghi chú |
+| --- | --- | --- | --- |
+| `index` | `_index`, `_id` tùy chọn | Document đầy đủ | Có thể tạo mới hoặc thay thế document. |
+| `create` | `_index`, `_id` tùy chọn | Document đầy đủ | Trả conflict nếu ID đã tồn tại. |
+| `update` | `_index`, `_id`, tùy chọn `retry_on_conflict` | `doc`, `script`, `upsert` | Partial update, không thay thế toàn bộ source. |
+| `delete` | `_index`, `_id` | Không có | Xóa một document. |
+
+Bulk update với script truyền params theo từng item:
+
+```http
+POST products/_bulk?refresh=wait_for
+Content-Type: application/x-ndjson
+
+{ "update": { "_index": "products", "_id": "sku-2001", "if_seq_no": 4, "if_primary_term": 2 } }
+{ "script": { "lang": "painless", "source": "ctx._source.stock += params.delta", "params": { "delta": 2 } } }
+{ "update": { "_index": "products", "_id": "sku-2005", "retry_on_conflict": 2 } }
+{ "doc": { "name": "Bộ sạc nhanh", "sku": "sku-2005", "stock": 6 }, "doc_as_upsert": true }
+```
+
+Một request bulk có thể chứa nhiều index. Tuy nhiên, giữ batch cùng loại workload hoặc cùng index thường giúp quan sát lỗi và điều chỉnh throughput dễ hơn.
+
+### Batch size, timeout và backoff
+
+Bulk quá nhỏ làm tăng overhead HTTP. Bulk quá lớn làm tăng memory, thời gian xử lý và kích thước retry. Không có một kích thước đúng cho mọi cluster; bắt đầu với số item vừa phải rồi benchmark theo kích thước byte, latency và tỷ lệ rejected.
+
+Một worker bulk production thường theo luồng sau:
+
+1. Gom item đến giới hạn số lượng hoặc kích thước byte.
+2. Gửi một request có timeout kết nối và timeout đọc rõ ràng.
+3. Kiểm tra cả HTTP status và trạng thái từng item.
+4. Chỉ đưa item lỗi tạm thời vào hàng đợi retry.
+5. Dùng exponential backoff có jitter, đồng thời giới hạn số lần retry.
+6. Đưa lỗi vĩnh viễn vào dead-letter queue hoặc log có đủ `_id` và nguyên nhân.
+
+Ví dụ pseudo-code cho chính sách retry:
+
+```text
+for attempt in 0..max_retries:
+    response = send_bulk(batch)
+    retry_items = items_with_status(response, [429, 502, 503, 504])
+    permanent_items = remaining_failed_items(response)
+
+    write_to_dead_letter_queue(permanent_items)
+    if retry_items is empty:
+        break
+
+    sleep(min(cap, base * 2^attempt) + random_jitter)
+    batch = retry_items
+```
+
+Giảm concurrency khi gặp `429 Too Many Requests`. Tăng số worker trong lúc cluster đã bị thread pool reject sẽ làm tình trạng xấu hơn. `timeout=30s` ở Bulk API là thời gian Elasticsearch chờ một số điều kiện xử lý; client vẫn cần read timeout lớn hơn một cách hợp lý.
+
+### Xử lý lỗi từng item
+
+Bulk response có thể là HTTP `200` nhưng field `errors` là `true`. HTTP status chỉ nói request bulk đã được tiếp nhận và xử lý ở mức protocol; ứng dụng phải duyệt `items`:
+
+```json
+{
+  "took": 12,
+  "errors": true,
+  "items": [
+    {
+      "index": {
+        "_index": "products",
+        "_id": "sku-2001",
+        "status": 201,
+        "result": "created"
+      }
+    },
+    {
+      "create": {
+        "_index": "products",
+        "_id": "sku-2004",
+        "status": 409,
+        "error": {
+          "type": "version_conflict_engine_exception",
+          "reason": "document already exists"
+        }
+      }
+    }
+  ]
+}
+```
+
+`items` giữ cùng thứ tự với các cặp dòng trong request. Khi parse lỗi, lưu action, index, ID, status và `error.type`/`error.reason`. Không retry toàn bộ request chỉ vì một item lỗi; làm vậy có thể ghi lại các item đã thành công.
+
+Phân loại thực tế:
+
+- `429`, `502`, `503`, `504`: thường là lỗi tạm thời, có thể retry có backoff nếu thao tác an toàn.
+- `400` do malformed JSON hoặc mapping: sửa dữ liệu/schema, không retry vô hạn.
+- `409` từ `create`: thường là duplicate theo nghiệp vụ, cần quyết định rõ có bỏ qua hay đọc lại.
+- `409` do optimistic concurrency: đọc phiên bản mới và merge theo nghiệp vụ, hoặc báo conflict cho caller.
+
+<Callout type="error" title="Không bỏ qua errors">
+  Một bulk request có HTTP 200 không đồng nghĩa mọi document đã ghi thành công. Nếu client không duyệt `items`, dữ liệu lỗi sẽ biến mất khỏi pipeline mà không có cảnh báo.
+</Callout>
+
+### wait_for_active_shards
+
+`wait_for_active_shards` quy định số shard copies phải active trước khi thao tác ghi tiếp tục. Ví dụ:
+
+```http
+POST products/_bulk?wait_for_active_shards=2&timeout=30s
+Content-Type: application/x-ndjson
+
+{ "index": { "_id": "sku-2006" } }
+{ "name": "Microphone", "sku": "sku-2006", "price": 1299000, "stock": 4 }
+```
+
+Giá trị `1` yêu cầu primary active. Giá trị `2` yêu cầu primary và một replica active khi index có một replica. Giá trị `all` yêu cầu mọi bản sao được cấu hình active. Nếu không đủ shard active trong thời gian `timeout`, request có thể thất bại thay vì ghi trong trạng thái không đạt yêu cầu.
+
+Tham số này là trade-off giữa durability/availability và latency. Đặt `all` cho mọi bulk ở cluster đang khôi phục có thể làm pipeline đứng lâu. Chọn mức phù hợp với SLA và theo dõi trạng thái cluster trước khi tăng mức chờ.
+
+## Idempotency và optimistic concurrency
+
+Hai khái niệm này giải quyết hai rủi ro khác nhau:
+
+- **Idempotency**: gửi lại cùng một request có tạo ra cùng trạng thái cuối hay không.
+- **Optimistic concurrency**: request có vô tình ghi đè thay đổi mới hơn của writer khác hay không.
+
+Một thao tác có thể idempotent nhưng vẫn ghi đè dữ liệu mới. Ngược lại, một thao tác có kiểm tra phiên bản nhưng retry không đúng cách vẫn có thể tạo hiệu ứng ngoài ý muốn.
+
+### Idempotency khi retry
+
+Các lựa chọn thường gặp:
+
+| Thao tác | Retry cùng ID có đặc tính gì? | Cách dùng an toàn |
+| --- | --- | --- |
+| `index` | Đưa document về payload cuối, nhưng có thể ghi đè update mới. | Dùng payload đầy đủ, ID ổn định và xác định thứ tự sự kiện. |
+| `create` | Lần đầu tạo, lần sau thường `409`. | Dùng cho event hoặc resource không được duplicate. |
+| `update` với `doc` | Cùng giá trị field thường gần idempotent. | Tránh dùng cho phép tăng/giảm nếu không có event ID. |
+| `update` với `stock += 1` | Không idempotent; retry có thể tăng hai lần. | Dùng event ID/deduplication hoặc thiết kế giá trị tuyệt đối. |
+| `delete` theo ID | Xóa trạng thái hiện tại; xóa lại không tạo document mới. | Có thể retry khi timeout nếu ID và routing đúng. |
+
+Timeout ở client không cho biết Elasticsearch chưa xử lý hay đã xử lý xong. Trước khi retry, hãy thiết kế operation có ID ổn định hoặc kiểm tra trạng thái. Với counter, có thể lưu event ID đã xử lý, hoặc gửi giá trị tổng mới thay vì lặp lại phép cộng.
+
+### Optimistic concurrency với seq_no và primary_term
+
+Khi đọc document, lấy `_seq_no` và `_primary_term` rồi gửi chúng trong update/delete tiếp theo:
+
+```http
+POST products/_update/sku-1001?if_seq_no=8&if_primary_term=2
+Content-Type: application/json
+
+{
+  "doc": { "price": 2299000 }
+}
+```
+
+Nếu document đã thay đổi sau lần đọc, Elasticsearch trả HTTP `409` và không áp dụng update. Client cần đọc lại, merge theo quy tắc nghiệp vụ rồi thử lại có giới hạn. Không dùng `_version` cũ như một cơ chế thay thế cho cặp `if_seq_no` và `if_primary_term` trong thiết kế mới.
+
+Trong Bulk API, đặt `if_seq_no` và `if_primary_term` trên metadata của item tương ứng. `retry_on_conflict` có thể tự thử lại update khi có conflict, nhưng không giải quyết được việc merge hai thay đổi có ý nghĩa nghiệp vụ khác nhau. Chỉ dùng nó khi phép update có thể áp dụng lại an toàn.
+
+## Anti-patterns cần tránh
+
+- Gửi từng document bằng một HTTP request tuần tự khi workload có thể gom batch. Điều này làm phí connection và tăng latency.
+- Dùng bulk như transaction. Một số item thành công và item khác thất bại là trạng thái bình thường.
+- Retry toàn bộ bulk sau timeout mà không có ID ổn định hoặc chính sách deduplication. Item đã thành công có thể bị áp dụng lại.
+- Retry vô hạn với mọi lỗi. Lỗi mapping, malformed request và conflict nghiệp vụ cần được phân loại.
+- Dùng `refresh=true` sau từng thao tác ghi để “đảm bảo chắc chắn”. Điều này thường làm giảm throughput đáng kể.
+- Dùng `update` script với source script ghép từ input người dùng. Truyền dữ liệu bằng `params` và giới hạn các script được phép.
+- Chọn routing theo khóa có độ lệch lớn. Một shard nóng có thể trở thành điểm nghẽn dù tổng cluster còn rảnh.
+- Đặt batch chỉ theo số lượng item mà bỏ qua kích thước byte. Một vài document lớn có thể làm request vượt giới hạn hoặc gây áp lực heap.
+- Không đặt timeout và không giới hạn concurrency. Khi cluster chậm, client sẽ tích tụ request và làm backlog tăng theo cấp số nhân.
+
+## Troubleshooting
+
+### Bulk trả về HTTP 200 nhưng vẫn có lỗi
+
+Kiểm tra `errors` và duyệt mọi phần tử trong `items`. Nếu `errors: true`, nhóm lỗi theo `status` và `error.type`. Retry chỉ nhóm transient; ghi nhóm permanent vào dead-letter queue kèm payload gốc.
+
+### 429 hoặc timeout khi ghi hàng loạt
+
+Kiểm tra thread pool, CPU, heap, disk I/O và tốc độ refresh. Giảm số worker hoặc kích thước batch trước khi tăng tài nguyên. Thêm exponential backoff có jitter. Nếu backlog vẫn tăng, áp dụng backpressure ở producer thay vì tiếp tục đẩy request.
+
+### Document vừa ghi chưa tìm thấy
+
+Nếu dùng Search API ngay sau thao tác ghi với `refresh=false`, hãy chờ refresh hoặc dùng `refresh=wait_for` ở thao tác ghi. Nếu dùng custom routing, kiểm tra search có truyền `routing` đúng và mọi thao tác Get/Update/Delete có cùng routing hay không. Với kiểm tra theo ID, thử Get API để phân biệt vấn đề refresh với vấn đề routing.
+
+### Lỗi mapping hoặc version conflict
+
+Lỗi mapping thường là HTTP `400` với `mapper_parsing_exception`; kiểm tra field và kiểu dữ liệu thực tế, sau đó sửa producer hoặc mapping. Version conflict là HTTP `409`; dùng `_seq_no`/`_primary_term` để phát hiện writer khác, rồi đọc lại và merge thay vì retry mù quáng.
+
+## Tóm tắt
+
+- Chọn `PUT /_doc/{id}` khi client có ID ổn định; chọn `_create` khi duplicate phải bị từ chối.
+- `update` với `doc` là partial update; dùng `doc_as_upsert` cho upsert đơn giản và `script` + `upsert` cho logic có điều kiện.
+- Bulk dùng NDJSON, có metadata line và source line theo từng action. Luôn kiểm tra kết quả từng item.
+- Retry cần phân biệt lỗi tạm thời với lỗi vĩnh viễn. Dùng backoff, jitter, giới hạn retry và dead-letter queue.
+- `refresh=wait_for` thường cân bằng freshness và throughput tốt hơn `refresh=true`.
+- Dùng ID ổn định cho idempotency. Dùng `if_seq_no` và `if_primary_term` để bảo vệ thay đổi trước concurrent writer.
+- Routing tùy chỉnh có thể giảm phạm vi tìm kiếm nhưng bắt buộc nhất quán và phải tránh hot shard.
