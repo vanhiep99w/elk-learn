@@ -1,0 +1,12 @@
+{
+  "title": "Clients và integrations",
+  "pages": [
+    "index",
+    "rest-api",
+    "javascript-client",
+    "python-client",
+    "java-client",
+    "go-client",
+    "opentelemetry"
+  ]
+}

@@ -1,18 +1,20 @@
-# ELK & Elasticsearch Ecosystem
+# ELK Elasticsearch Ecosystem
 
-Tài liệu học Elasticsearch và hệ sinh thái Elastic bằng tiếng Việt, được xây dựng bằng Next.js và Fumadocs.
+Tài liệu tiếng Việt về Elasticsearch và hệ sinh thái Elastic: Elasticsearch, Kibana, Logstash, Beats, Elastic Agent, Observability và Elastic Security.
 
-## Chạy local
-
-Sandbox tạo project này không có network nên chưa chạy cài dependency hoặc build. Sau khi tải project về máy có network:
+## Chạy project
 
 ```bash
 npm install
 npm run dev
 ```
 
-Mở <http://localhost:3000/docs> để xem tài liệu. Có thể dùng `npm run build` để kiểm tra production build.
+Mở [http://localhost:3000/docs](http://localhost:3000/docs).
 
-## Viết nội dung chi tiết
+## Cấu trúc nội dung
 
-Các trang hiện là placeholder có cấu trúc đầy đủ. Hãy viết từng trang bằng pass tài liệu chi tiết, bắt đầu từ `content/docs/nen-tang/elasticsearch-la-gi.mdx`.
+Các trang trong `content/docs` hiện là placeholder được sắp xếp theo lộ trình từ nền tảng, bắt đầu, core search, ingestion và Kibana đến deployment, production và troubleshooting. Dùng skill `fumadocs-technical-writer` để viết chi tiết từng trang.
+
+## Ghi chú phiên bản
+
+Project được scaffold theo các phiên bản đã kiểm tra trên npm registry vào năm 2026. Nếu Fumadocs phát hành breaking change trước khi cài đặt, kiểm tra lại tài liệu chính thức và `npm outdated`.

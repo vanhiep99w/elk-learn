@@ -1,21 +1,28 @@
 ---
 title: "Bắt đầu"
-description: "Các bước cài đặt và thao tác đầu tiên với một Elastic Stack local."
+description: "Các bước cài đặt và thực hành đầu tiên với Elasticsearch và Kibana."
 ---
 
-Đây là trang khung cho nhóm **Bắt đầu**, dùng để định hướng các bài học trong hệ sinh thái ELK và Elasticsearch.
+Đây là trang khung của nhóm **Bắt đầu** trong lộ trình ELK Elasticsearch Ecosystem.
+
+<Callout type="info">
+  Nội dung chi tiết của nhóm sẽ được bổ sung lần lượt trong các bài bên dưới.
+</Callout>
 
 ## Mục lục
+
 - [Phạm vi dự kiến](#phạm-vi-dự-kiến)
 - [Các bài trong nhóm](#các-bài-trong-nhóm)
 
 ## Phạm vi dự kiến
-Các bước cài đặt và thao tác đầu tiên với một Elastic Stack local. Nội dung chi tiết sẽ được viết bổ sung theo từng trang.
+
+Nhóm này đưa người học từ môi trường trống đến một cluster chạy được, có dữ liệu mẫu và truy vấn đầu tiên.
 
 ## Các bài trong nhóm
-- [Cài đặt local](/docs/bat-dau/cai-dat-local) — Chuẩn bị JavaScript tooling, Elasticsearch và Kibana cho môi trường học tập.
-- [Chạy bằng Docker Compose](/docs/bat-dau/docker-compose) — Khởi động một stack local có Elasticsearch và Kibana bằng Docker Compose.
-- [Làm quen Kibana](/docs/bat-dau/lam-quen-kibana) — Khám phá giao diện Kibana, các app chính và cách điều hướng trong workspace.
-- [Tạo index và document đầu tiên](/docs/bat-dau/index-document-dau-tien) — Tạo index, mapping cơ bản và ghi document đầu tiên vào Elasticsearch.
-- [Truy vấn đầu tiên](/docs/bat-dau/truy-van-dau-tien) — Thực hiện các truy vấn match, term và bool cơ bản qua Dev Tools.
-- [Kiểm tra sức khỏe cluster](/docs/bat-dau/kiem-tra-cluster) — Đọc cluster health, node info và các API chẩn đoán cơ bản.
+
+- [Cài đặt bằng Docker Compose](./cai-dat-docker-compose) — Tạo một môi trường Elasticsearch và Kibana cục bộ bằng Docker Compose.
+- [Cài đặt native](./cai-dat-native) — Cài đặt Elasticsearch và Kibana trực tiếp trên máy Linux để học và thử nghiệm.
+- [Kibana Dev Tools](./kibana-dev-tools) — Làm quen với Console của Kibana để gửi request REST và đọc response.
+- [Index document đầu tiên](./index-document-dau-tien) — Tạo index, thêm document và kiểm tra dữ liệu bằng API cơ bản.
+- [Truy vấn đầu tiên](./truy-van-dau-tien) — Viết các truy vấn tìm kiếm đầu tiên bằng Query DSL và đọc kết quả.
+- [Sample data](./sample-data) — Nạp dữ liệu mẫu vào Kibana để thực hành Discover, dashboard và aggregation.

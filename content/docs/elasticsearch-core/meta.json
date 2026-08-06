@@ -1,0 +1,14 @@
+{
+  "title": "Elasticsearch core",
+  "pages": [
+    "index",
+    "indices-documents",
+    "mapping-datatypes",
+    "crud-bulk",
+    "query-dsl",
+    "full-text-search",
+    "aggregations",
+    "analyzers-tokenizers",
+    "shards-replicas"
+  ]
+}

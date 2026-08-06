@@ -1,0 +1,13 @@
+{
+  "title": "Observability và Security",
+  "pages": [
+    "index",
+    "elastic-observability",
+    "logs",
+    "metrics",
+    "apm",
+    "uptime-synthetics",
+    "elastic-security",
+    "siem-detection-rules"
+  ]
+}

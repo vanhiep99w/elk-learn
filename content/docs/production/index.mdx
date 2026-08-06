@@ -1,22 +1,30 @@
 ---
 title: "Production"
-description: "Vận hành Elastic Stack tin cậy, hiệu quả và có khả năng mở rộng."
+description: "Vận hành an toàn, ổn định và có thể mở rộng trong môi trường production."
 ---
 
-Đây là trang khung cho nhóm **Production**, dùng để định hướng các bài học trong hệ sinh thái ELK và Elasticsearch.
+Đây là trang khung của nhóm **Production** trong lộ trình ELK Elasticsearch Ecosystem.
+
+<Callout type="info">
+  Nội dung chi tiết của nhóm sẽ được bổ sung lần lượt trong các bài bên dưới.
+</Callout>
 
 ## Mục lục
+
 - [Phạm vi dự kiến](#phạm-vi-dự-kiến)
 - [Các bài trong nhóm](#các-bài-trong-nhóm)
 
 ## Phạm vi dự kiến
-Vận hành Elastic Stack tin cậy, hiệu quả và có khả năng mở rộng. Nội dung chi tiết sẽ được viết bổ sung theo từng trang.
+
+Nhóm này tập trung vào security, backup, lifecycle, performance, monitoring, scaling và nâng cấp cluster.
 
 ## Các bài trong nhóm
-- [Shard sizing](/docs/production/shard-sizing) — Ước lượng kích thước shard, số lượng shard và phân bổ replica phù hợp.
-- [Performance tuning](/docs/production/performance-tuning) — Tối ưu indexing, search, refresh, cache, thread pool và tài nguyên node.
-- [Index Lifecycle Management](/docs/production/ilm) — Tự động hóa rollover, retention và chuyển dữ liệu giữa các data tier.
-- [Monitoring cluster](/docs/production/cluster-monitoring) — Theo dõi health, JVM, resource, indexing, search latency và capacity signals.
-- [Capacity planning](/docs/production/capacity-planning) — Dự báo tăng trưởng dữ liệu, throughput, storage và nhu cầu mở rộng.
-- [Backup và disaster recovery](/docs/production/backup-disaster-recovery) — Xây dựng RPO/RTO, kiểm thử restore và kế hoạch phục hồi sau sự cố.
-- [Kiểm soát chi phí lưu trữ](/docs/production/storage-cost) — Tối ưu retention, tiering, compression và lựa chọn tài nguyên theo workload.
+
+- [Security, TLS và RBAC](./security-tls-rbac) — Bảo vệ kết nối và dữ liệu bằng TLS, authentication, authorization và role-based access control.
+- [Snapshots và restore](./snapshots-restore) — Thiết kế snapshot repository và khôi phục index hoặc cluster khi cần.
+- [ILM và SLM](./ilm-slm) — Tự động quản lý vòng đời index và lịch snapshot bằng ILM, SLM.
+- [Performance tuning](./performance-tuning) — Đo lường và tối ưu indexing, search, refresh, cache cùng resource usage.
+- [Monitoring cluster](./monitoring) — Theo dõi health, JVM, node, indexing, search và các tín hiệu vận hành.
+- [Scaling và shard strategy](./scaling-shard-strategy) — Mở rộng cluster và chọn chiến lược shard phù hợp với tăng trưởng dữ liệu.
+- [Upgrades](./upgrades) — Lập kế hoạch nâng cấp Elasticsearch, Kibana và agent với downtime tối thiểu.
+- [Backup và disaster recovery](./backup-disaster-recovery) — Xây dựng RPO, RTO và quy trình khôi phục sau sự cố diện rộng.

@@ -1,0 +1,12 @@
+{
+  "title": "Deployment",
+  "pages": [
+    "index",
+    "cluster-topologies",
+    "docker-compose",
+    "kubernetes-eck",
+    "elastic-cloud",
+    "high-availability",
+    "sizing-capacity"
+  ]
+}

@@ -1,0 +1,29 @@
+---
+title: "Data ingestion"
+description: "Các cách thu thập, biến đổi và đưa dữ liệu vào Elastic Stack."
+---
+
+Đây là trang khung của nhóm **Data ingestion** trong lộ trình ELK Elasticsearch Ecosystem.
+
+<Callout type="info">
+  Nội dung chi tiết của nhóm sẽ được bổ sung lần lượt trong các bài bên dưới.
+</Callout>
+
+## Mục lục
+
+- [Phạm vi dự kiến](#phạm-vi-dự-kiến)
+- [Các bài trong nhóm](#các-bài-trong-nhóm)
+
+## Phạm vi dự kiến
+
+Nhóm này tập trung vào đường đi của dữ liệu từ nguồn phát sinh đến Elasticsearch, gồm agent, pipeline và chuẩn dữ liệu.
+
+## Các bài trong nhóm
+
+- [Ingest pipelines](./ingest-pipeline) — Biến đổi và làm giàu document ngay tại node ingest trước khi index.
+- [Logstash](./logstash) — Thiết kế pipeline Logstash với input, filter và output cho nhiều nguồn dữ liệu.
+- [Beats](./beats) — Sử dụng Filebeat, Metricbeat và các Beats nhẹ để thu thập log và metric.
+- [Elastic Agent](./elastic-agent) — Triển khai một agent hợp nhất để thu thập logs, metrics, traces và security data.
+- [Fleet](./fleet) — Quản lý tập trung Elastic Agent, policy, integration và phiên bản triển khai.
+- [Elastic Common Schema](./ecs) — Chuẩn hóa field theo ECS để dữ liệu từ nhiều nguồn có thể tìm kiếm và phân tích thống nhất.
+- [Data streams](./data-streams) — Dùng data stream cho dữ liệu append-only như logs, metrics và time-series.

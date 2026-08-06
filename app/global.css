@@ -1,13 +1,12 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/style.css';
 
-/* --- Layout rộng hơn, giảm khoảng đệm, xem layout-padding-customization.md --- */
+/* Layout width/padding được thu gọn để article dùng được nhiều chiều ngang hơn. */
 :root {
-  /* Option A: dùng gần như toàn bộ chiều rộng viewport. */
+  /* Option A: cho grid mở rộng theo viewport. */
   --fd-layout-width: 100%;
-  /* Option B: nếu Option A không phù hợp với phiên bản Fumadocs đang dùng:
-     --fd-layout-width: 140rem;
-  */
+  /* Option B: fallback nếu 100% không phù hợp với bản Fumadocs đang dùng. */
+  /* --fd-layout-width: 140rem; */
 }
 
 #nd-docs-layout {

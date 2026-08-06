@@ -18,9 +18,12 @@ export default async function Page(props: {
   const MDXContent = page.data.body;
 
   return (
-    // Nếu phiên bản Fumadocs cài locally hỗ trợ article/container props,
-    // có thể tiếp tục giảm padding article theo hướng dẫn layout tùy biến.
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage
+      toc={page.data.toc}
+      full={page.data.full}
+      /* DocsPage extends article props; these classes reduce the article gutter. */
+      className="max-w-none px-4 md:px-6"
+    >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>

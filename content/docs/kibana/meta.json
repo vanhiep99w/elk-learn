@@ -3,10 +3,10 @@
   "pages": [
     "index",
     "discover",
-    "dev-tools",
-    "visualizations",
     "dashboards",
-    "spaces-saved-objects",
-    "kibana-alerting"
+    "lens-visualizations",
+    "kql",
+    "esql",
+    "alerting-reporting"
   ]
 }

@@ -1,21 +1,28 @@
 ---
 title: "Kibana"
-description: "Trực quan hóa, khám phá dữ liệu và quản trị workspace thông qua Kibana."
+description: "Sử dụng Kibana để khám phá, trực quan hóa và vận hành dữ liệu Elastic."
 ---
 
-Đây là trang khung cho nhóm **Kibana**, dùng để định hướng các bài học trong hệ sinh thái ELK và Elasticsearch.
+Đây là trang khung của nhóm **Kibana** trong lộ trình ELK Elasticsearch Ecosystem.
+
+<Callout type="info">
+  Nội dung chi tiết của nhóm sẽ được bổ sung lần lượt trong các bài bên dưới.
+</Callout>
 
 ## Mục lục
+
 - [Phạm vi dự kiến](#phạm-vi-dự-kiến)
 - [Các bài trong nhóm](#các-bài-trong-nhóm)
 
 ## Phạm vi dự kiến
-Trực quan hóa, khám phá dữ liệu và quản trị workspace thông qua Kibana. Nội dung chi tiết sẽ được viết bổ sung theo từng trang.
+
+Nhóm này giới thiệu các giao diện và ngôn ngữ truy vấn chính của Kibana cho phân tích hằng ngày.
 
 ## Các bài trong nhóm
-- [Discover](/docs/kibana/discover) — Khám phá document, lọc dữ liệu, lưu search và phân tích log tương tác.
-- [Dev Tools](/docs/kibana/dev-tools) — Dùng Console để gọi Elasticsearch API, lưu request và thử nghiệm Query DSL.
-- [Visualizations](/docs/kibana/visualizations) — Tạo biểu đồ và các panel trực quan từ aggregation và dữ liệu index.
-- [Dashboards](/docs/kibana/dashboards) — Thiết kế dashboard có filter, drilldown và bố cục phù hợp cho từng persona.
-- [Spaces và saved objects](/docs/kibana/spaces-saved-objects) — Tổ chức không gian làm việc và quản lý dashboard, visualization, data view.
-- [Alerting trong Kibana](/docs/kibana/kibana-alerting) — Tạo rule, connector, action và workflow thông báo từ Kibana.
+
+- [Discover](./discover) — Khám phá document, lọc dữ liệu và lưu các truy vấn trong Discover.
+- [Dashboards](./dashboards) — Tổ chức nhiều visualization thành dashboard phục vụ theo dõi và chia sẻ.
+- [Lens và visualizations](./lens-visualizations) — Tạo biểu đồ bằng Lens và chọn loại visualization phù hợp với câu hỏi phân tích.
+- [Kibana Query Language](./kql) — Lọc dữ liệu trong Kibana bằng KQL và phân biệt KQL với Query DSL.
+- [ES|QL](./esql) — Phân tích dữ liệu bằng pipeline query ES|QL trong Kibana và các workflow liên quan.
+- [Alerting và reporting](./alerting-reporting) — Cấu hình rule, connector, alert và báo cáo định kỳ trong Kibana.

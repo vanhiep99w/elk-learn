@@ -15,13 +15,12 @@ These two skills are a pair, used in sequence:
 
 Mention this handoff to the user at the end: which page to tackle first, and that they can ask you to write it in detail next.
 
-## Critical environment constraint: no network access
+## Network access varies by environment — check, don't assume
 
-This sandbox's bash tool has **no network access**. That means `npm install`, `npx create-next-app`, `pnpm create fumadocs-app`, etc. cannot actually run here — they need the registry. So the workflow is:
+This skill may run in different environments: a sandboxed chat session with no network, or Claude Code/a local terminal with full network access. **Check whether `bash_tool`/shell commands can actually reach npm's registry before deciding the workflow** (e.g. try `npm --version` or note if the environment's tool descriptions say network is disabled) rather than assuming either way:
 
-- **Write every project file directly** (package.json, configs, content files) using the file-creation tools, reproducing exactly what the Fumadocs manual-installation flow would produce.
-- **Do not attempt to run `npm install`, the dev server, or a build** in this sandbox — it will fail with a network error. Tell the user this upfront: they need to run `npm install` (or `pnpm install`) themselves once they have the project locally.
-- Package the resulting folder so the user can download it and unzip locally, then run `npm install && npm run dev`.
+- **No network available:** write every project file directly (package.json, configs, content files) using the file-creation tools, reproducing exactly what the Fumadocs manual-installation flow would produce. Do not attempt to run `npm install`, the dev server, or a build — it will fail with a network error. Tell the user this upfront: they need to run `npm install` (or `pnpm install`) themselves once they have the project locally, and to report back if the build fails (see the version-verification note in step 3 — stale hardcoded versions are the most likely cause).
+- **Network available (e.g. Claude Code on the user's machine):** still write the files the same way, but you can additionally verify current package versions/import paths via web search before writing them (see step 3), and can optionally run `npm install` and `npm run build` yourself to catch import/version errors before handing the project to the user — this catches exactly the class of bug described in step 3's warning before the user ever sees it.
 
 ## Workflow
 
@@ -34,6 +33,9 @@ Before writing any files, design the complete page tree for the topic: top-level
 Write this plan out as a simple nested list before generating files, so structure is decided once and applied consistently (folder names, ordering, page slugs).
 
 ### 3. Scaffold the Next.js + Fumadocs project files
+
+**Before writing any file, verify current package versions and import paths if web access is available** (it may not be, in a sandboxed environment — see the network note above). Fumadocs ships very frequently and has broken import paths across versions before (see the warning at the top of `references/project-file-templates.md` for a real example: a stale `fumadocs-ui` version pin caused `'DocsPage' is not exported from 'fumadocs-ui/layouts/docs/page'` at build time). If `web_search`/`web_fetch` are available, check https://www.fumadocs.dev/docs/mdx/next and https://www.fumadocs.dev/docs/ui/manual-installation for the current recommended versions/imports before proceeding; if they're not available (no network), use the reference file's documented versions as the best available snapshot and flag to the user that they should double-check `npm outdated`/the Fumadocs docs if the build fails after `npm install`.
+
 Read `references/project-file-templates.md` for the exact file contents (package.json, next.config.ts, source.config.ts, mdx-components.tsx, lib/source.ts, lib/layout.shared.ts, app/layout.tsx, app/global.css, app/docs/layout.tsx, app/docs/[[...slug]]/page.tsx, tsconfig.json, postcss.config). Write every one of these into the target folder — this is the latest Fumadocs App Router setup (fumadocs-mdx content source + fumadocs-ui layouts, Tailwind v4).
 
 ### 4. Generate the content tree with placeholders

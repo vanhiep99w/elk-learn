@@ -1,0 +1,28 @@
+---
+title: "Deployment"
+description: "Triển khai Elasticsearch và Kibana từ local đến production."
+---
+
+Đây là trang khung của nhóm **Deployment** trong lộ trình ELK Elasticsearch Ecosystem.
+
+<Callout type="info">
+  Nội dung chi tiết của nhóm sẽ được bổ sung lần lượt trong các bài bên dưới.
+</Callout>
+
+## Mục lục
+
+- [Phạm vi dự kiến](#phạm-vi-dự-kiến)
+- [Các bài trong nhóm](#các-bài-trong-nhóm)
+
+## Phạm vi dự kiến
+
+Nhóm này trình bày các mô hình triển khai, lựa chọn hạ tầng, high availability và cách ước lượng năng lực cluster.
+
+## Các bài trong nhóm
+
+- [Cluster topologies](./cluster-topologies) — Chọn vai trò node và topology cluster cho workload khác nhau.
+- [Docker Compose](./docker-compose) — Tổ chức một stack Elastic nhiều service bằng Docker Compose cho môi trường thử nghiệm.
+- [Kubernetes và ECK](./kubernetes-eck) — Triển khai và quản lý Elastic Stack trên Kubernetes bằng Elastic Cloud on Kubernetes.
+- [Elastic Cloud](./elastic-cloud) — Khởi tạo và vận hành deployment trên Elastic Cloud cùng các lựa chọn managed service.
+- [High availability](./high-availability) — Thiết kế cluster chịu lỗi với zone, replica, quorum và chiến lược failover.
+- [Sizing và capacity planning](./sizing-capacity) — Ước lượng dung lượng, throughput, shard count và tài nguyên cần thiết.

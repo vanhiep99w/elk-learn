@@ -1,0 +1,12 @@
+{
+  "title": "Advanced search",
+  "pages": [
+    "index",
+    "relevance-scoring",
+    "autocomplete",
+    "semantic-search",
+    "vector-search",
+    "hybrid-search",
+    "geo-search"
+  ]
+}

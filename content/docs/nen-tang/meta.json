@@ -3,10 +3,9 @@
   "pages": [
     "index",
     "elasticsearch-la-gi",
-    "kien-truc-elastic-stack",
-    "khai-niem-cot-loi",
-    "elasticsearch-va-cong-cu-khac",
-    "json-document-rest-api",
-    "ecs"
+    "elastic-stack-va-elk",
+    "kien-truc-elasticsearch",
+    "mo-hinh-du-lieu",
+    "use-cases-va-lua-chon"
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "title": "Data ingestion",
+  "pages": [
+    "index",
+    "ingest-pipeline",
+    "logstash",
+    "beats",
+    "elastic-agent",
+    "fleet",
+    "ecs",
+    "data-streams"
+  ]
+}

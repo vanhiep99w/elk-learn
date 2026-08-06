@@ -1,15 +1,16 @@
 {
-  "title": "ELK & Elasticsearch Ecosystem",
+  "title": "ELK Elasticsearch Ecosystem",
   "pages": [
+    "index",
     "nen-tang",
     "bat-dau",
-    "elasticsearch-co-ban",
-    "elasticsearch-nang-cao",
+    "elasticsearch-core",
+    "data-ingestion",
     "kibana",
-    "thu-thap-xu-ly-du-lieu",
-    "observability",
-    "security",
-    "trien-khai",
+    "advanced-search",
+    "observability-security",
+    "clients-integrations",
+    "deployment",
     "production",
     "troubleshooting"
   ]

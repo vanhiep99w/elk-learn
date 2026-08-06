@@ -2,7 +2,9 @@
 
 These are the files to write for a fresh Fumadocs project using the **manual installation** flow (App Router, `fumadocs-mdx` content source, `fumadocs-ui` layouts, Tailwind v4). This mirrors what `pnpm create fumadocs-app` would generate, written out directly since this sandbox can't run the interactive CLI or hit npm's registry.
 
-Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPTION>`) to match the topic. Package versions: use `latest`/caret ranges as shown — the user will resolve exact versions when they run `npm install` locally.
+Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPTION>`) to match the topic.
+
+> **⚠️ Versions and import paths below were correct as of Aug 2026 — verify before trusting them blindly.** Fumadocs ships very frequently (multiple releases per package per week is normal), and it has broken import paths across versions before: `fumadocs-ui/layouts/docs/page` as an explicit subpath only exists from v16.2 onward — pinning `"fumadocs-ui": "^15"` while using that import (an actual bug this skill shipped once) resolves to a pre-16.2 release where the import doesn't exist, and the build fails with `'DocsPage' is not exported from 'fumadocs-ui/layouts/docs/page'`. **Before writing `package.json` or any file that imports from `fumadocs-ui`/`fumadocs-core`/`fumadocs-mdx`, web-search + fetch the current official docs** (start from https://www.fumadocs.dev/docs/mdx/next and https://www.fumadocs.dev/docs/ui/manual-installation) to confirm the current latest major versions and current import paths still match what's below, and adjust the version numbers / imports in what you write if they've drifted. Don't skip this check just because it worked once.
 
 ---
 
@@ -20,9 +22,9 @@ Adjust the placeholder values (`<PROJECT_NAME>`, `<SITE_TITLE>`, `<SITE_DESCRIPT
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
-    "fumadocs-core": "^15",
-    "fumadocs-mdx": "^11",
-    "fumadocs-ui": "^15",
+    "fumadocs-core": "^16",
+    "fumadocs-mdx": "^15",
+    "fumadocs-ui": "^16",
     "next": "^15",
     "react": "^19",
     "react-dom": "^19"

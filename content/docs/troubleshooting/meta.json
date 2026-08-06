@@ -2,11 +2,11 @@
   "title": "Troubleshooting",
   "pages": [
     "index",
-    "indexing-errors",
-    "slow-search",
-    "cluster-yellow-red",
-    "disk-watermark",
-    "debug-ingest-pipeline",
-    "debug-kibana-logstash"
+    "cluster-health",
+    "shard-allocation",
+    "slow-queries-latency",
+    "rejected-requests",
+    "ingest-failures",
+    "kibana-issues"
   ]
 }
