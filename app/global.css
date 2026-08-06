@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/style.css';
+
+/* --- Layout rộng hơn, giảm khoảng đệm, xem layout-padding-customization.md --- */
+:root {
+  /* Option A: dùng gần như toàn bộ chiều rộng viewport. */
+  --fd-layout-width: 100%;
+  /* Option B: nếu Option A không phù hợp với phiên bản Fumadocs đang dùng:
+     --fd-layout-width: 140rem;
+  */
+}
+
+#nd-docs-layout {
+  padding-inline: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  #nd-docs-layout {
+    padding-inline: 1rem;
+  }
+}

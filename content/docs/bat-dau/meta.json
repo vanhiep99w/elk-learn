@@ -1,0 +1,12 @@
+{
+  "title": "Bắt đầu",
+  "pages": [
+    "index",
+    "cai-dat-local",
+    "docker-compose",
+    "lam-quen-kibana",
+    "index-document-dau-tien",
+    "truy-van-dau-tien",
+    "kiem-tra-cluster"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "title": "Thu thập và xử lý dữ liệu",
+  "pages": [
+    "index",
+    "logstash-pipeline",
+    "logstash-input-filter-output",
+    "beats",
+    "elastic-agent-fleet",
+    "integrations",
+    "ingest-pipelines",
+    "ecs-pipeline"
+  ]
+}

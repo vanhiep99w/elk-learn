@@ -1,0 +1,12 @@
+{
+  "title": "Troubleshooting",
+  "pages": [
+    "index",
+    "indexing-errors",
+    "slow-search",
+    "cluster-yellow-red",
+    "disk-watermark",
+    "debug-ingest-pipeline",
+    "debug-kibana-logstash"
+  ]
+}

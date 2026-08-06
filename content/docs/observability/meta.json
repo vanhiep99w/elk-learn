@@ -1,0 +1,12 @@
+{
+  "title": "Observability",
+  "pages": [
+    "index",
+    "logs",
+    "metrics",
+    "apm",
+    "distributed-tracing",
+    "synthetics-uptime",
+    "observability-rules"
+  ]
+}

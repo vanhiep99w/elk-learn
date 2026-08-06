@@ -1,0 +1,12 @@
+{
+  "title": "Kibana",
+  "pages": [
+    "index",
+    "discover",
+    "dev-tools",
+    "visualizations",
+    "dashboards",
+    "spaces-saved-objects",
+    "kibana-alerting"
+  ]
+}

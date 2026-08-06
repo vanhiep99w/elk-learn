@@ -1,0 +1,13 @@
+{
+  "title": "Elasticsearch nâng cao",
+  "pages": [
+    "index",
+    "bulk-indexing",
+    "nested-join",
+    "geo-search",
+    "vector-search",
+    "semantic-search",
+    "painless-scripting",
+    "search-templates"
+  ]
+}

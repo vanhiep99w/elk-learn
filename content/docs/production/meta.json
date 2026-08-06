@@ -1,0 +1,13 @@
+{
+  "title": "Production",
+  "pages": [
+    "index",
+    "shard-sizing",
+    "performance-tuning",
+    "ilm",
+    "cluster-monitoring",
+    "capacity-planning",
+    "backup-disaster-recovery",
+    "storage-cost"
+  ]
+}

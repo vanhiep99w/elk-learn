@@ -1,0 +1,12 @@
+{
+  "title": "Nền tảng",
+  "pages": [
+    "index",
+    "elasticsearch-la-gi",
+    "kien-truc-elastic-stack",
+    "khai-niem-cot-loi",
+    "elasticsearch-va-cong-cu-khac",
+    "json-document-rest-api",
+    "ecs"
+  ]
+}
