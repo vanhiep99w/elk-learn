@@ -4,7 +4,7 @@ import {
   DocsBody,
   DocsDescription,
   DocsTitle,
-} from 'fumadocs-ui/layouts/docs/page';
+} from '@/layouts/docs/page';
 import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/mdx-components';
 
@@ -21,8 +21,8 @@ export default async function Page(props: {
     <DocsPage
       toc={page.data.toc}
       full={page.data.full}
-      /* DocsPage extends article props; these classes reduce the article gutter. */
-      className="max-w-none px-4 md:px-6"
+      /* Keep the ejected article container full-width; its responsive padding is defined there. */
+      className="max-w-none mx-0"
     >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>

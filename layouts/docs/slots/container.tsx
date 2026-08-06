@@ -1,0 +1,45 @@
+'use client';
+import { cn } from '../../../lib/cn';
+import { useEffect, useState, type ComponentProps } from 'react';
+import { useDocsLayout } from './..';
+
+export function Container(props: ComponentProps<'div'>) {
+  const { slots } = useDocsLayout();
+  const { collapsed } = slots.sidebar?.useSidebar?.() ?? {};
+  const [previousCollapsed, setPreviousCollapsed] = useState(collapsed);
+  const isCollapseChanged = previousCollapsed !== collapsed;
+
+  // will only set data attribute for an instant
+  useEffect(() => {
+    if (isCollapseChanged) setPreviousCollapsed(collapsed);
+  }, [collapsed, isCollapseChanged]);
+
+  return (
+    <div
+      id="nd-docs-layout"
+      data-sidebar-collapsed={collapsed}
+      data-column-changed={isCollapseChanged}
+      {...props}
+      style={
+        {
+          // Use a three-column grid so the main content fills the viewport.
+          // The main column is 1fr, and the sidebar column becomes 0px when collapsed.
+          gridTemplate: `"sidebar header toc"
+"sidebar toc-popover toc"
+"sidebar main toc" 1fr / var(--fd-sidebar-col) minmax(0, 1fr) var(--fd-toc-width)`,
+          '--fd-docs-row-1': 'var(--fd-banner-height, 0px)',
+          '--fd-docs-row-2': 'calc(var(--fd-docs-row-1) + var(--fd-header-height))',
+          '--fd-docs-row-3': 'calc(var(--fd-docs-row-2) + var(--fd-toc-popover-height))',
+          '--fd-sidebar-col': collapsed ? '0px' : 'var(--fd-sidebar-width)',
+          ...props.style,
+        } as object
+      }
+      className={cn(
+        'grid overflow-x-clip min-h-(--fd-docs-height) [--fd-docs-height:100dvh] [--fd-header-height:0px] [--fd-toc-popover-height:0px] [--fd-sidebar-width:0px] [--fd-toc-width:0px] data-[column-changed=true]:transition-[grid-template-columns]',
+        props.className,
+      )}
+    >
+      {props.children}
+    </div>
+  );
+}

@@ -2,14 +2,19 @@
 @import 'fumadocs-ui/css/style.css';
 
 /* Layout width/padding được thu gọn để article dùng được nhiều chiều ngang hơn. */
+html,
 :root {
   /* Option A: cho grid mở rộng theo viewport. */
-  --fd-layout-width: 100%;
-  /* Option B: fallback nếu 100% không phù hợp với bản Fumadocs đang dùng. */
-  /* --fd-layout-width: 140rem; */
+  --fd-layout-width: 100% !important;
+  /* Option B: fallback nếu bản Fumadocs đang dùng không hợp với 100%. */
+  /* --fd-layout-width: 140rem !important; */
 }
 
+/* Ejected DocsLayout đã bỏ wrapper max-width/centering, nên grid dùng toàn viewport. */
 #nd-docs-layout {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
   padding-inline: 0.5rem;
 }
 
