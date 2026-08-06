@@ -11,6 +11,14 @@ npm run dev
 
 Mở [http://localhost:3000/docs](http://localhost:3000/docs).
 
+## Deploy lên Cloudflare Pages
+
+Project dùng Next.js static export và ghi build output vào `dist`, nên cấu hình Cloudflare Pages như sau:
+
+- **Build command:** `npm run build`
+- **Build output directory:** `dist`
+- **Root directory:** `/` (mặc định)
+
 ## Cấu trúc nội dung
 
 Các trang trong `content/docs` hiện là placeholder được sắp xếp theo lộ trình từ nền tảng, bắt đầu, core search, ingestion và Kibana đến deployment, production và troubleshooting. Dùng skill `fumadocs-technical-writer` để viết chi tiết từng trang.
