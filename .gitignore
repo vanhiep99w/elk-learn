@@ -4,3 +4,6 @@ dist
 .source
 .env*.local
 /.pi-subagents
+
+# TypeScript incremental build cache
+*.tsbuildinfo
